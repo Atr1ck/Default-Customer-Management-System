@@ -21,6 +21,10 @@ def handle_exception(e):
         'message': str(e)
     }), 500
 
+@app.route('/test', methods=['GET'])
+def test():
+    return jsonify({'success': True, 'message': '测试接口正常'})
+    
 # 用户相关接口
 @app.route('/api/login', methods=['POST'])
 def login():
