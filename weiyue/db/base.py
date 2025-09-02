@@ -20,6 +20,7 @@ class Database:
                 port=DB_CONFIG['port'],
                 charset=DB_CONFIG['charset'],
                 cursorclass=DictCursor
+                use_unicode=True
             )
             self.cursor = self.connection.cursor()
             return True
