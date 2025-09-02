@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>后端API测试界面</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        success: '#52C41A',
+                        warning: '#FAAD14',
+                        danger: '#FF4D4F',
+                        dark: '#1F2329',
+                        light: '#F2F3F5'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            }
+            .transition-all-300 {
+                transition: all 300ms ease-in-out;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-primary flex items-center">
+                <i class="fa fa-server mr-2"></i>后端API测试界面
+            </h1>
+            <div class="flex items-center space-x-4">
+                <div class="text-sm text-gray-500">
+                    <span id="api-base-url-display" class="font-mono">http://localhost:5000/api</span>
+                </div>
+                <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-100 transition-all-300">
+                    <i class="fa fa-moon-o text-gray-600"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- API基础URL配置 -->
+        <div class="bg-white rounded-lg p-4 mb-6 card-shadow">
+            <div class="flex flex-col md:flex-row md:items-center gap-4">
+                <div class="flex-1">
+                    <label for="api-base-url" class="block text-sm font-medium text-gray-700 mb-1">API基础URL</label>
+                    <div class="flex">
+                        <input type="text" id="api-base-url" 
+                               value="http://localhost:5000/api" 
+                               class="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                        <button id="save-base-url" class="bg-primary text-white px-4 py-2 rounded-r-md hover:bg-primary/90 transition-all-300">
+                            保存
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">认证状态</label>
+                    <div id="auth-status" class="flex items-center px-3 py-2 bg-gray-100 rounded-md">
+                        <i class="fa fa-unlock-alt text-warning mr-2"></i>
+                        <span>未认证</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 标签页导航 -->
+        <div class="border-b border-gray-200 mb-6">
+            <ul class="flex flex-wrap -mb-px" id="tabs" role="tablist">
+                <li class="mr-2" role="presentation">
+                    <button class="inline-block p-4 border-b-2 border-primary text-primary rounded-t-lg" 
+                            id="auth-tab" data-tab="auth-panel" role="tab">
+                        <i class="fa fa-key mr-1"></i>认证
+                    </button>
+                </li>
+                <li class="mr-2" role="presentation">
+                    <button class="inline-block p-4 border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300 rounded-t-lg" 
+                            id="default-reason-tab" data-tab="default-reason-panel" role="tab">
+                        <i class="fa fa-exclamation-triangle mr-1"></i>违约原因
+                    </button>
+                </li>
+                <li class="mr-2" role="presentation">
+                    <button class="inline-block p-4 border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300 rounded-t-lg" 
+                            id="recovery-reason-tab" data-tab="recovery-reason-panel" role="tab">
+                        <i class="fa fa-refresh mr-1"></i>重生原因
+                    </button>
+                </li>
+                <li class="mr-2" role="presentation">
+                    <button class="inline-block p-4 border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300 rounded-t-lg" 
+                            id="default-application-tab" data-tab="default-application-panel" role="tab">
+                        <i class="fa fa-file-text-o mr-1"></i>违约申请
+                    </button>
+                </li>
+                <li class="mr-2" role="presentation">
+                    <button class="inline-block p-4 border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300 rounded-t-lg" 
+                            id="recovery-application-tab" data-tab="recovery-application-panel" role="tab">
+                        <i class="fa fa-file-text mr-1"></i>重生申请
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <!-- 标签页内容 -->
+        <div class="tab-contents">
+            <!-- 认证面板 -->
+            <div id="auth-panel" class="tab-content">
+                <div class="bg-white rounded-lg p-6 mb-6 card-shadow">
+                    <h2 class="text-xl font-semibold mb-4 text-dark">用户登录</h2>
+                    <form id="login-form" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="username" class="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+                                <input type="text" id="username" name="username" value="zhangsan"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            </div>
+                            <div>
+                                <label for="password" class="block text-sm font-medium text-gray-700 mb-1">密码</label>
+                                <input type="password" id="password" name="password" value="123456"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            </div>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="submit" class="bg-primary text-white px-6 py-2 rounded-md hover:bg-primary/90 transition-all-300 flex items-center">
+                                <i class="fa fa-sign-in mr-2"></i>登录
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="login-result" class="hidden bg-white rounded-lg p-6 card-shadow">
+                    <h3 class="text-lg font-semibold mb-3 text-dark">登录结果</h3>
+                    <div class="p-4 bg-gray-50 rounded-md font-mono text-sm overflow-x-auto" id="login-result-content"></div>
+                </div>
+            </div>
+
+            <!-- 违约原因面板 -->
+            <div id="default-reason-panel" class="tab-content hidden">
+                <div class="bg-white rounded-lg p-6 mb-6 card-shadow">
+                    <h2 class="text-xl font-semibold mb-4 text-dark">查询违约原因</h2>
+                    <div class="flex flex-col md:flex-row gap-4 mb-4">
+                        <button id="get-all-default-reasons" class="bg-secondary text-white px-6 py-2 rounded-md hover:bg-secondary/90 transition-all-300 flex items-center justify-center">
+                            <i class="fa fa-list mr-2"></i>获取所有启用的违约原因
+                        </button>
+                        <div class="flex-1 flex">
+                            <input type="text" id="default-reason-id" placeholder="输入违约原因ID（如REASON001）"
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            <button id="get-default-reason-by-id" class="bg-primary text-white px-6 py-2 rounded-r-md hover:bg-primary/90 transition-all-300 flex items-center">
+                                <i class="fa fa-search mr-2"></i>查询
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="default-reason-result" class="hidden bg-white rounded-lg p-6 card-shadow">
+                    <h3 class="text-lg font-semibold mb-3 text-dark">查询结果</h3>
+                    <div class="p-4 bg-gray-50 rounded-md font-mono text-sm overflow-x-auto" id="default-reason-result-content"></div>
+                </div>
+            </div>
+
+            <!-- 重生原因面板 -->
+            <div id="recovery-reason-panel" class="tab-content hidden">
+                <div class="bg-white rounded-lg p-6 mb-6 card-shadow">
+                    <h2 class="text-xl font-semibold mb-4 text-dark">查询重生原因</h2>
+                    <div class="flex flex-col md:flex-row gap-4 mb-4">
+                        <button id="get-all-recovery-reasons" class="bg-secondary text-white px-6 py-2 rounded-md hover:bg-secondary/90 transition-all-300 flex items-center justify-center">
+                            <i class="fa fa-list mr-2"></i>获取所有启用的重生原因
+                        </button>
+                        <div class="flex-1 flex">
+                            <input type="text" id="recovery-reason-id" placeholder="输入重生原因ID（如RC001）"
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            <button id="get-recovery-reason-by-id" class="bg-primary text-white px-6 py-2 rounded-r-md hover:bg-primary/90 transition-all-300 flex items-center">
+                                <i class="fa fa-search mr-2"></i>查询
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="recovery-reason-result" class="hidden bg-white rounded-lg p-6 card-shadow">
+                    <h3 class="text-lg font-semibold mb-3 text-dark">查询结果</h3>
+                    <div class="p-4 bg-gray-50 rounded-md font-mono text-sm overflow-x-auto" id="recovery-reason-result-content"></div>
+                </div>
+            </div>
+
+            <!-- 违约申请面板 -->
+            <div id="default-application-panel" class="tab-content hidden">
+                <div class="bg-white rounded-lg p-6 mb-6 card-shadow">
+                    <h2 class="text-xl font-semibold mb-4 text-dark">创建违约申请</h2>
+                    <form id="create-default-application-form" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="da-customer-id" class="block text-sm font-medium text-gray-700 mb-1">客户ID</label>
+                                <input type="text" id="da-customer-id" name="customer_id" value="U00001"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            </div>
+                            <div>
+                                <label for="da-reason-id" class="block text-sm font-medium text-gray-700 mb-1">违约原因ID</label>
+                                <input type="text" id="da-reason-id" name="default_reason_id" value="REASON001"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            </div>
+                            <div>
+                                <label for="da-severity" class="block text-sm font-medium text-gray-700 mb-1">违约严重性</label>
+                                <select id="da-severity" name="severity_level"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                                    <option value="高">高</option>
+                                    <option value="中">中</option>
+                                    <option value="低">低</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="da-applicant-id" class="block text-sm font-medium text-gray-700 mb-1">申请人ID</label>
+                                <input type="text" id="da-applicant-id" name="applicant_id" value="T002"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            </div>
+                        </div>
+                        <div>
+                            <label for="da-remarks" class="block text-sm font-medium text-gray-700 mb-1">备注信息</label>
+                            <textarea id="da-remarks" name="remarks" rows="3"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">测试创建违约申请</textarea>
+                        </div>
+                        <div>
+                            <label for="da-attachment" class="block text-sm font-medium text-gray-700 mb-1">附件URL（可选）</label>
+                            <input type="text" id="da-attachment" name="attachment_url"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="submit" class="bg-primary text-white px-6 py-2 rounded-md hover:bg-primary/90 transition-all-300 flex items-center">
+                                <i class="fa fa-plus-circle mr-2"></i>创建违约申请
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="bg-white rounded-lg p-6 mb-6 card-shadow">
+                    <h2 class="text-xl font-semibold mb-4 text-dark">审核违约申请</h2>
+                    <form id="audit-default-application-form" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="da-audit-app-id" class="block text-sm font-medium text-gray-700 mb-1">申请单ID</label>
+                                <input type="text" id="da-audit-app-id" name="app_id" placeholder="输入违约申请ID"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            </div>
+                            <div>
+                                <label for="da-audit-status" class="block text-sm font-medium text-gray-700 mb-1">审核状态</label>
+                                <select id="da-audit-status" name="audit_status"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                                    <option value="同意">同意</option>
+                                    <option value="拒绝">拒绝</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="da-auditor-id" class="block text-sm font-medium text-gray-700 mb-1">审核人ID</label>
+                                <input type="text" id="da-auditor-id" name="auditor_id" value="T001"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            </div>
+                        </div>
+                        <div>
+                            <label for="da-audit-remarks" class="block text-sm font-medium text-gray-700 mb-1">审核备注</label>
+                            <textarea id="da-audit-remarks" name="audit_remarks" rows="3"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">测试审核通过</textarea>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="submit" class="bg-success text-white px-6 py-2 rounded-md hover:bg-success/90 transition-all-300 flex items-center">
+                                <i class="fa fa-check-circle mr-2"></i>提交审核
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="default-application-result" class="hidden bg-white rounded-lg p-6 card-shadow">
+                    <h3 class="text-lg font-semibold mb-3 text-dark">操作结果</h3>
+                    <div class="p-4 bg-gray-50 rounded-md font-mono text-sm overflow-x-auto" id="default-application-result-content"></div>
+                </div>
+            </div>
+
+            <!-- 重生申请面板 -->
+            <div id="recovery-application-panel" class="tab-content hidden">
+                <div class="bg-white rounded-lg p-6 mb-6 card-shadow">
+                    <h2 class="text-xl font-semibold mb-4 text-dark">创建重生申请</h2>
+                    <form id="create-recovery-application-form" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="ra-customer-id" class="block text-sm font-medium text-gray-700 mb-1">客户ID</label>
+                                <input type="text" id="ra-customer-id" name="customer_id" value="U00002"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            </div>
+                            <div>
+                                <label for="ra-original-app-id" class="block text-sm font-medium text-gray-700 mb-1">原违约申请ID</label>
+                                <input type="text" id="ra-original-app-id" name="original_default_app_id" placeholder="输入原违约申请ID"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            </div>
+                            <div>
+                                <label for="ra-reason-id" class="block text-sm font-medium text-gray-700 mb-1">重生原因ID</label>
+                                <input type="text" id="ra-reason-id" name="recovery_reason_id" value="RC001"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            </div>
+                            <div>
+                                <label for="ra-applicant-id" class="block text-sm font-medium text-gray-700 mb-1">申请人ID</label>
+                                <input type="text" id="ra-applicant-id" name="applicant_id" value="T002"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            </div>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="submit" class="bg-primary text-white px-6 py-2 rounded-md hover:bg-primary/90 transition-all-300 flex items-center">
+                                <i class="fa fa-plus-circle mr-2"></i>创建重生申请
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="bg-white rounded-lg p-6 mb-6 card-shadow">
+                    <h2 class="text-xl font-semibold mb-4 text-dark">审核重生申请</h2>
+                    <form id="audit-recovery-application-form" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="ra-audit-app-id" class="block text-sm font-medium text-gray-700 mb-1">重生申请ID</label>
+                                <input type="text" id="ra-audit-app-id" name="app_id" placeholder="输入重生申请ID"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            </div>
+                            <div>
+                                <label for="ra-audit-status" class="block text-sm font-medium text-gray-700 mb-1">审核状态</label>
+                                <select id="ra-audit-status" name="audit_status"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                                    <option value="同意">同意</option>
+                                    <option value="拒绝">拒绝</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="ra-auditor-id" class="block text-sm font-medium text-gray-700 mb-1">审核人ID</label>
+                                <input type="text" id="ra-auditor-id" name="auditor_id" value="T001"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            </div>
+                        </div>
+                        <div>
+                            <label for="ra-audit-remarks" class="block text-sm font-medium text-gray-700 mb-1">审核备注</label>
+                            <textarea id="ra-audit-remarks" name="audit_remarks" rows="3"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">测试审核通过</textarea>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="submit" class="bg-success text-white px-6 py-2 rounded-md hover:bg-success/90 transition-all-300 flex items-center">
+                                <i class="fa fa-check-circle mr-2"></i>提交审核
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="recovery-application-result" class="hidden bg-white rounded-lg p-6 card-shadow">
+                    <h3 class="text-lg font-semibold mb-3 text-dark">操作结果</h3>
+                    <div class="p-4 bg-gray-50 rounded-md font-mono text-sm overflow-x-auto" id="recovery-application-result-content"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-white border-t border-gray-200 py-6 mt-12">
+        <div class="container mx-auto px-4 text-center text-gray-500 text-sm">
+            <p>后端API测试界面 &copy; 2023</p>
+        </div>
+    </footer>
+
+    <script>
+        // 存储认证token
+        let authToken = null;
+        let currentUser = null;
+
+        // 初始化标签页切换
+        document.querySelectorAll('#tabs button').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // 移除所有标签页的活跃状态
+                document.querySelectorAll('#tabs button').forEach(t => {
+                    t.classList.remove('border-primary', 'text-primary');
+                    t.classList.add('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
+                });
+                
+                // 隐藏所有内容面板
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                
+                // 激活当前标签页
+                tab.classList.remove('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
+                tab.classList.add('border-primary', 'text-primary');
+                
+                // 显示对应的内容面板
+                const targetPanel = tab.getAttribute('data-tab');
+                document.getElementById(targetPanel).classList.remove('hidden');
+            });
+        });
+
+        // 保存API基础URL
+        document.getElementById('save-base-url').addEventListener('click', () => {
+            const baseUrl = document.getElementById('api-base-url').value.trim();
+            if (baseUrl) {
+                localStorage.setItem('apiBaseUrl', baseUrl);
+                document.getElementById('api-base-url-display').textContent = baseUrl;
+                showToast('API基础URL保存成功');
+            }
+        });
+
+        // 初始化API基础URL
+        window.addEventListener('load', () => {
+            const savedBaseUrl = localStorage.getItem('apiBaseUrl');
+            if (savedBaseUrl) {
+                document.getElementById('api-base-url').value = savedBaseUrl;
+                document.getElementById('api-base-url-display').textContent = savedBaseUrl;
+            }
+            
+            // 检查是否有保存的认证信息
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                updateAuthStatus(true);
+            }
+        });
+
+        // 登录表单提交
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            
+            if (!username || !password) {
+                showToast('用户名和密码不能为空', 'warning');
+                return;
+            }
+            
+            try {
+                const baseUrl = document.getElementById('api-base-url').value.trim();
+                const response = await fetch(`${baseUrl}/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const result = await response.json();
+                
+                // 显示结果
+                const resultElement = document.getElementById('login-result');
+                const contentElement = document.getElementById('login-result-content');
+                contentElement.textContent = JSON.stringify(result, null, 2);
+                resultElement.classList.remove('hidden');
+                
+                if (result.success) {
+                    // 保存用户信息
+                    currentUser = result.data;
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    updateAuthStatus(true);
+                    showToast('登录成功');
+                } else {
+                    showToast(result.message || '登录失败', 'error');
+                }
+            } catch (error) {
+                showToast(`请求失败: ${error.message}`, 'error');
+                console.error('登录请求失败:', error);
+            }
+        });
+
+        // 获取所有启用的违约原因
+        document.getElementById('get-all-default-reasons').addEventListener('click', async () => {
+            try {
+                const baseUrl = document.getElementById('api-base-url').value.trim();
+                const response = await fetch(`${baseUrl}/default-reasons`, {
+                    method: 'GET',
+                    headers: getRequestHeaders()
+                });
+                
+                const result = await response.json();
+                displayResult('default-reason-result', 'default-reason-result-content', result);
+            } catch (error) {
+                showToast(`请求失败: ${error.message}`, 'error');
+                console.error('获取违约原因失败:', error);
+            }
+        });
+
+        // 根据ID获取违约原因
+        document.getElementById('get-default-reason-by-id').addEventListener('click', async () => {
+            const reasonId = document.getElementById('default-reason-id').value.trim();
+            if (!reasonId) {
+                showToast('请输入违约原因ID', 'warning');
+                return;
+            }
+            
+            try {
+                const baseUrl = document.getElementById('api-base-url').value.trim();
+                const response = await fetch(`${baseUrl}/default-reasons/${reasonId}`, {
+                    method: 'GET',
+                    headers: getRequestHeaders()
+                });
+                
+                const result = await response.json();
+                displayResult('default-reason-result', 'default-reason-result-content', result);
+            } catch (error) {
+                showToast(`请求失败: ${error.message}`, 'error');
+                console.error('获取违约原因失败:', error);
+            }
+        });
+
+        // 获取所有启用的重生原因
+        document.getElementById('get-all-recovery-reasons').addEventListener('click', async () => {
+            try {
+                const baseUrl = document.getElementById('api-base-url').value.trim();
+                const response = await fetch(`${baseUrl}/recovery-reasons`, {
+                    method: 'GET',
+                    headers: getRequestHeaders()
+                });
+                
+                const result = await response.json();
+                displayResult('recovery-reason-result', 'recovery-reason-result-content', result);
+            } catch (error) {
+                showToast(`请求失败: ${error.message}`, 'error');
+                console.error('获取重生原因失败:', error);
+            }
+        });
+
+        // 根据ID获取重生原因
+        document.getElementById('get-recovery-reason-by-id').addEventListener('click', async () => {
+            const reasonId = document.getElementById('recovery-reason-id').value.trim();
+            if (!reasonId) {
+                showToast('请输入重生原因ID', 'warning');
+                return;
+            }
+            
+            try {
+                const baseUrl = document.getElementById('api-base-url').value.trim();
+                const response = await fetch(`${baseUrl}/recovery-reasons/${reasonId}`, {
+                    method: 'GET',
+                    headers: getRequestHeaders()
+                });
+                
+                const result = await response.json();
+                displayResult('recovery-reason-result', 'recovery-reason-result-content', result);
+            } catch (error) {
+                showToast(`请求失败: ${error.message}`, 'error');
+                console.error('获取重生原因失败:', error);
+            }
+        });
+
+        // 创建违约申请
+        document.getElementById('create-default-application-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!checkAuth()) return;
+            
+            const formData = {
+                customer_id: document.getElementById('da-customer-id').value.trim(),
+                default_reason_id: document.getElementById('da-reason-id').value.trim(),
+                severity_level: document.getElementById('da-severity').value,
+                applicant_id: document.getElementById('da-applicant-id').value.trim(),
+                remarks: document.getElementById('da-remarks').value.trim(),
+                attachment_url: document.getElementById('da-attachment').value.trim()
+            };
+            
+            try {
+                const baseUrl = document.getElementById('api-base-url').value.trim();
+                const response = await fetch(`${baseUrl}/default-applications`, {
+                    method: 'POST',
+                    headers: getRequestHeaders(),
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                displayResult('default-application-result', 'default-application-result-content', result);
+                
+                if (result.success) {
+                    showToast('违约申请创建成功');
+                } else {
+                    showToast(result.message || '违约申请创建失败', 'error');
+                }
+            } catch (error) {
+                showToast(`请求失败: ${error.message}`, 'error');
+                console.error('创建违约申请失败:', error);
+            }
+        });
+
+        // 审核违约申请
+        document.getElementById('audit-default-application-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!checkAuth()) return;
+            
+            const appId = document.getElementById('da-audit-app-id').value.trim();
+            if (!appId) {
+                showToast('请输入申请单ID', 'warning');
+                return;
+            }
+            
+            const formData = {
+                auditor_id: document.getElementById('da-auditor-id').value.trim(),
+                audit_status: document.getElementById('da-audit-status').value,
+                audit_remarks: document.getElementById('da-audit-remarks').value.trim()
+            };
+            
+            try {
+                const baseUrl = document.getElementById('api-base-url').value.trim();
+                const response = await fetch(`${baseUrl}/default-applications/${appId}/audit`, {
+                    method: 'POST',
+                    headers: getRequestHeaders(),
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                displayResult('default-application-result', 'default-application-result-content', result);
+                
+                if (result.success) {
+                    showToast('违约申请审核成功');
+                } else {
+                    showToast(result.message || '违约申请审核失败', 'error');
+                }
+            } catch (error) {
+                showToast(`请求失败: ${error.message}`, 'error');
+                console.error('审核违约申请失败:', error);
+            }
+        });
+
+        // 创建重生申请
+        document.getElementById('create-recovery-application-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!checkAuth()) return;
+            
+            const formData = {
+                customer_id: document.getElementById('ra-customer-id').value.trim(),
+                original_default_app_id: document.getElementById('ra-original-app-id').value.trim(),
+                recovery_reason_id: document.getElementById('ra-reason-id').value.trim(),
+                applicant_id: document.getElementById('ra-applicant-id').value.trim()
+            };
+            
+            try {
+                const baseUrl = document.getElementById('api-base-url').value.trim();
+                const response = await fetch(`${baseUrl}/recovery-applications`, {
+                    method: 'POST',
+                    headers: getRequestHeaders(),
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                displayResult('recovery-application-result', 'recovery-application-result-content', result);
+                
+                if (result.success) {
+                    showToast('重生申请创建成功');
+                } else {
+                    showToast(result.message || '重生申请创建失败', 'error');
+                }
+            } catch (error) {
+                showToast(`请求失败: ${error.message}`, 'error');
+                console.error('创建重生申请失败:', error);
+            }
+        });
+
+        // 审核重生申请
+        document.getElementById('audit-recovery-application-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!checkAuth()) return;
+            
+            const appId = document.getElementById('ra-audit-app-id').value.trim();
+            if (!appId) {
+                showToast('请输入重生申请ID', 'warning');
+                return;
+            }
+            
+            const formData = {
+                auditor_id: document.getElementById('ra-auditor-id').value.trim(),
+                audit_status: document.getElementById('ra-audit-status').value,
+                audit_remarks: document.getElementById('ra-audit-remarks').value.trim()
+            };
+            
+            try {
+                const baseUrl = document.getElementById('api-base-url').value.trim();
+                const response = await fetch(`${baseUrl}/recovery-applications/${appId}/audit`, {
+                    method: 'POST',
+                    headers: getRequestHeaders(),
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                displayResult('recovery-application-result', 'recovery-application-result-content', result);
+                
+                if (result.success) {
+                    showToast('重生申请审核成功');
+                } else {
+                    showToast(result.message || '重生申请审核失败', 'error');
+                }
+            } catch (error) {
+                showToast(`请求失败: ${error.message}`, 'error');
+                console.error('审核重生申请失败:', error);
+            }
+        });
+
+        // 辅助函数：获取请求头
+        function getRequestHeaders() {
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            // 如果有认证信息，添加到请求头
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+            
+            return headers;
+        }
+
+        // 辅助函数：显示结果
+        function displayResult(panelId, contentId, result) {
+            const panel = document.getElementById(panelId);
+            const content = document.getElementById(contentId);
+            
+            content.textContent = JSON.stringify(result, null, 2);
+            panel.classList.remove('hidden');
+            
+            // 滚动到结果区域
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // 辅助函数：更新认证状态显示
+        function updateAuthStatus(isAuthenticated) {
+            const authStatusElement = document.getElementById('auth-status');
+            
+            if (isAuthenticated && currentUser) {
+                authStatusElement.innerHTML = `<i class="fa fa-lock text-success mr-2"></i>
+                                              <span>已认证：${currentUser.real_name}（${currentUser.role}）</span>`;
+            } else {
+                authStatusElement.innerHTML = `<i class="fa fa-unlock-alt text-warning mr-2"></i>
+                                              <span>未认证</span>`;
+            }
+        }
+
+        // 辅助函数：检查是否已认证
+        function checkAuth() {
+            if (!currentUser) {
+                showToast('请先登录', 'warning');
+                // 切换到登录标签页
+                document.getElementById('auth-tab').click();
+                return false;
+            }
+            return true;
+        }
+
+        // 辅助函数：显示提示消息
+        function showToast(message, type = 'info') {
+            // 创建toast元素
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 right-4 px-4 py-3 rounded-md shadow-lg z-50 transition-all duration-300 transform translate-x-full`;
+            
+            // 根据类型设置样式
+            switch (type) {
+                case 'success':
+                    toast.classList.add('bg-success', 'text-white');
+                    toast.innerHTML = `<i class="fa fa-check-circle mr-2"></i>${message}`;
+                    break;
+                case 'error':
+                    toast.classList.add('bg-danger', 'text-white');
+                    toast.innerHTML = `<i class="fa fa-times-circle mr-2"></i>${message}`;
+                    break;
+                case 'warning':
+                    toast.classList.add('bg-warning', 'text-white');
+                    toast.innerHTML = `<i class="fa fa-exclamation-triangle mr-2"></i>${message}`;
+                    break;
+                default:
+                    toast.classList.add('bg-primary', 'text-white');
+                    toast.innerHTML = `<i class="fa fa-info-circle mr-2"></i>${message}`;
+            }
+            
+            // 添加到页面
+            document.body.appendChild(toast);
+            
+            // 显示toast
+            setTimeout(() => {
+                toast.classList.remove('translate-x-full');
+                toast.classList.add('translate-x-0');
+            }, 100);
+            
+            // 3秒后隐藏
+            setTimeout(() => {
+                toast.classList.remove('translate-x-0');
+                toast.classList.add('translate-x-full');
+                
+                // 移除元素
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
