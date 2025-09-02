@@ -19,8 +19,9 @@ class Database:
                 database=DB_CONFIG['database'],
                 port=DB_CONFIG['port'],
                 charset=DB_CONFIG['charset'],
-                cursorclass=DictCursor
-                use_unicode=True
+                cursorclass=DictCursor，
+                use_unicode=True，
+                init_command="SET NAMES utf8mb4"
             )
             self.cursor = self.connection.cursor()
             return True
