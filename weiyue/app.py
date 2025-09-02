@@ -7,6 +7,12 @@ from config import SERVER_CONFIG
 # 初始化Flask应用
 app = Flask(__name__)
 
+# 新增：设置全局响应头，强制UTF-8编码
+@app.after_request
+def after_request(response):
+    response.headers['Content-Type'] = 'application/json; charset=utf-8'
+    return response
+
 # 初始化服务
 reason_service = ReasonService()
 application_service = ApplicationService()
