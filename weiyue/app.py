@@ -1,13 +1,23 @@
 from flask import Flask, request, jsonify
+from flask.json import JSONEncoder
+import json  # 导入标准json模块
 from services.reason_service import ReasonService
 from services.application_service import ApplicationService
 from services.user_service import UserService
 from config import SERVER_CONFIG
 
+# 自定义JSON编码器，解决中文显示问题
+class CustomJSONEncoder(JSONEncoder):
+    def encode(self, obj):
+        # 确保中文不被转为Unicode转义字符
+        return json.dumps(obj, ensure_ascii=False)
+
 # 初始化Flask应用
 app = Flask(__name__)
+# 应用自定义JSON编码器
+app.json_encoder = CustomJSONEncoder
 
-# 新增：设置全局响应头，强制UTF-8编码
+# 设置全局响应头，强制UTF-8编码
 @app.after_request
 def after_request(response):
     response.headers['Content-Type'] = 'application/json; charset=utf-8'
@@ -29,7 +39,8 @@ def handle_exception(e):
 
 @app.route('/test', methods=['GET'])
 def test():
-    return jsonify({'success': True, 'message': '测试接口正常'})
+    # 测试中文显示
+    return jsonify({'success': True, 'message': '测试接口正常，中文显示测试：成功'})
     
 # 用户相关接口
 @app.route('/api/login', methods=['POST'])
