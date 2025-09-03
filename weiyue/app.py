@@ -1,55 +1,44 @@
-from flask import Flask, request, jsonify
-from flask.json.provider import DefaultJSONProvider
-import json
-from services.reason_service import ReasonService
-from services.application_service import ApplicationService
-from services.user_service import UserService
-from config import SERVER_CONFIG
+# weiyue/app.py
+import sys
+import os
+import json  # 新增导入json模块
+from flask import Flask, request, jsonify, Response  # 新增导入Response
 
+# 添加项目根目录到 Python 路径
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE_DIR)
 
-# 自定义JSON提供器，解决中文显示问题
-class CustomJSONProvider(DefaultJSONProvider):
-    def dumps(self, obj, **kwargs):
-        # 确保中文不被转为Unicode转义字符
-        return json.dumps(obj, ensure_ascii=False, **kwargs)
-
-    def loads(self, s, **kwargs):
-        return json.loads(s, **kwargs)
-
+# 现在可以正常导入
+from .services.reason_service import ReasonService
+from .services.application_service import ApplicationService
+from .services.user_service import UserService
+from .config import SERVER_CONFIG
 
 # 初始化Flask应用
 app = Flask(__name__)
-# 应用自定义JSON提供器
-app.json = CustomJSONProvider(app)
-
-
-# 设置全局响应头，强制UTF-8编码
-@app.after_request
-def after_request(response):
-    response.headers['Content-Type'] = 'application/json; charset=utf-8'
-    return response
-
 
 # 初始化服务
 reason_service = ReasonService()
 application_service = ApplicationService()
 user_service = UserService()
 
+# 辅助函数：返回中文JSON
+def json_response_chinese(data, status=200):
+    """返回包含中文的JSON响应"""
+    return Response(
+        json.dumps(data, ensure_ascii=False),
+        status=status,
+        mimetype='application/json; charset=utf-8'
+    )
 
 # 全局异常处理
 @app.errorhandler(Exception)
 def handle_exception(e):
     """全局异常处理"""
-    return jsonify({
+    return json_response_chinese({
         'success': False,
         'message': str(e)
-    }), 500
-
-
-@app.route('/test', methods=['GET'])
-def test():
-    # 测试中文显示
-    return jsonify({'success': True, 'message': '测试接口正常，中文显示测试：成功'})
+    }, 500)
 
 
 # 用户相关接口
@@ -62,7 +51,7 @@ def login():
 
     user = user_service.login(username, password)
     if user:
-        return jsonify({
+        return json_response_chinese({
             'success': True,
             'data': {
                 'user_id': user.user_id,
@@ -71,7 +60,7 @@ def login():
                 'role': user.role
             }
         })
-    return jsonify({'success': False, 'message': '用户名或密码错误'}), 401
+    return json_response_chinese({'success': False, 'message': '用户名或密码错误'}, 401)
 
 
 # 违约原因相关接口
@@ -79,7 +68,7 @@ def login():
 def get_default_reasons():
     """获取所有启用的违约原因"""
     reasons = reason_service.get_all_enabled_default_reasons()
-    return jsonify({
+    return json_response_chinese({
         'success': True,
         'data': [reason.to_dict() for reason in reasons]
     })
@@ -90,11 +79,11 @@ def get_default_reason(reason_id):
     """获取指定违约原因"""
     reason = reason_service.get_default_reason_by_id(reason_id)
     if reason:
-        return jsonify({
+        return json_response_chinese({
             'success': True,
             'data': reason.to_dict()
         })
-    return jsonify({'success': False, 'message': '违约原因不存在'}), 404
+    return json_response_chinese({'success': False, 'message': '违约原因不存在'}, 404)
 
 
 # 重生原因相关接口
@@ -102,7 +91,7 @@ def get_default_reason(reason_id):
 def get_recovery_reasons():
     """获取所有启用的重生原因"""
     reasons = reason_service.get_all_enabled_recovery_reasons()
-    return jsonify({
+    return json_response_chinese({
         'success': True,
         'data': [reason.to_dict() for reason in reasons]
     })
@@ -113,11 +102,11 @@ def get_recovery_reason(reason_id):
     """获取指定重生原因"""
     reason = reason_service.get_recovery_reason_by_id(reason_id)
     if reason:
-        return jsonify({
+        return json_response_chinese({
             'success': True,
             'data': reason.to_dict()
         })
-    return jsonify({'success': False, 'message': '重生原因不存在'}), 404
+    return json_response_chinese({'success': False, 'message': '重生原因不存在'}, 404)
 
 
 # 违约申请相关接口
@@ -135,8 +124,8 @@ def create_default_application():
     )
 
     if result:
-        return jsonify({'success': True, 'message': '违约申请创建成功'})
-    return jsonify({'success': False, 'message': '违约申请创建失败'}), 500
+        return json_response_chinese({'success': True, 'message': '违约申请创建成功'})
+    return json_response_chinese({'success': False, 'message': '违约申请创建失败'}, 500)
 
 
 @app.route('/api/default-applications/<app_id>/audit', methods=['POST'])
@@ -151,8 +140,8 @@ def audit_default_application(app_id):
     )
 
     if success:
-        return jsonify({'success': True, 'message': '审核成功'})
-    return jsonify({'success': False, 'message': message or '审核失败'}), 500
+        return json_response_chinese({'success': True, 'message': '审核成功'})
+    return json_response_chinese({'success': False, 'message': message or '审核失败'}, 500)
 
 
 # 重生申请相关接口
@@ -168,8 +157,8 @@ def create_recovery_application():
     )
 
     if result:
-        return jsonify({'success': True, 'message': '重生申请创建成功'})
-    return jsonify({'success': False, 'message': '重生申请创建失败'}), 500
+        return json_response_chinese({'success': True, 'message': '重生申请创建成功'})
+    return json_response_chinese({'success': False, 'message': '重生申请创建失败'}, 500)
 
 
 @app.route('/api/recovery-applications/<app_id>/audit', methods=['POST'])
@@ -184,8 +173,8 @@ def audit_recovery_application(app_id):
     )
 
     if success:
-        return jsonify({'success': True, 'message': '审核成功'})
-    return jsonify({'success': False, 'message': message or '审核失败'}), 500
+        return json_response_chinese({'success': True, 'message': '审核成功'})
+    return json_response_chinese({'success': False, 'message': message or '审核失败'}, 500)
 
 
 # 启动应用
