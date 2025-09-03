@@ -16,7 +16,7 @@ import {
 } from 'antd';
 import { SearchOutlined, ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import type { RebirthReview } from '../types';
-import { mockRebirthReviews, statusOptions } from '../services/mockData';
+import { RebirthAPI, OptionsAPI } from '../services/api';
 
 const { Option } = Select;
 
@@ -29,8 +29,14 @@ const RebirthReview: React.FC = () => {
   const [searchForm] = Form.useForm();
 
   useEffect(() => {
-    // 模拟从API获取数据
-    setData(mockRebirthReviews);
+    (async () => {
+      const [list, statusOpts] = await Promise.all([
+        RebirthAPI.listReviews(),
+        OptionsAPI.status()
+      ]);
+      setData(list as RebirthReview[]);
+      (window as any).__statusOptions = statusOpts;
+    })().catch(console.error);
   }, []);
 
   const handleSearch = async (values: any) => {
@@ -53,7 +59,7 @@ const RebirthReview: React.FC = () => {
   const handleReset = () => {
     searchForm.resetFields();
     // 重新加载所有数据
-    setData(mockRebirthReviews);
+    RebirthAPI.listReviews().then((list: any) => setData(list as RebirthReview[]));
   };
 
   const handleReview = (record: RebirthReview) => {
@@ -217,7 +223,12 @@ const RebirthReview: React.FC = () => {
             <Col span={6}>
               <Form.Item name="status" label="审核状态">
                 <Select placeholder="请选择状态" allowClear>
-                  {statusOptions.map(option => (
+                  {((window as any).__statusOptions || [
+                    { label: '全部', value: '' },
+                    { label: '待审核', value: 'pending' },
+                    { label: '已通过', value: 'approved' },
+                    { label: '已拒绝', value: 'rejected' }
+                  ]).map((option: any) => (
                     <Option key={option.value} value={option.value}>
                       {option.label}
                     </Option>

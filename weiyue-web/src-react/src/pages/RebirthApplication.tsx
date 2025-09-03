@@ -17,7 +17,7 @@ import {
 } from 'antd';
 import { ReloadOutlined, FileTextOutlined, SendOutlined } from '@ant-design/icons';
 import type { RebirthApplication, Customer } from '../types';
-import { mockCustomers, mockRebirthApplications, rebirthReasons } from '../services/mockData';
+import { CustomerAPI, RebirthAPI } from '../services/api';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -31,9 +31,16 @@ const RebirthApplication: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // 模拟从API获取数据
-    setDefaultedCustomers(mockCustomers.filter(c => c.isDefaulted));
-    setApplications(mockRebirthApplications);
+    (async () => {
+      const [customers, apps, reasons] = await Promise.all([
+        CustomerAPI.list(),
+        RebirthAPI.listApplications(),
+        RebirthAPI.reasons()
+      ]);
+      setDefaultedCustomers((customers as Customer[]).filter(c => c.isDefaulted));
+      setApplications(apps as RebirthApplication[]);
+      (window as any).__rebirthReasons = (reasons as any[]).map(r => r.label);
+    })().catch(console.error);
   }, []);
 
   const handleApply = (customer: Customer) => {
@@ -47,22 +54,17 @@ const RebirthApplication: React.FC = () => {
       if (!selectedCustomer) return;
       
       setLoading(true);
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const application: Partial<RebirthApplication> = {
-        id: Date.now().toString(),
+      const created = await RebirthAPI.createApplication({
         customerId: selectedCustomer.id,
         customerName: selectedCustomer.name,
-        originalReason: '经营不善导致资金链断裂', // 这里应该从实际数据获取
-        severity: 'high', // 这里应该从实际数据获取
+        originalReason: '经营不善导致资金链断裂',
+        severity: 'high',
         rebirthReason: values.rebirthReason,
         status: 'pending',
         createTime: new Date().toLocaleString(),
         updateTime: new Date().toLocaleString()
-      };
-      
-      setApplications(prev => [...prev, application as RebirthApplication]);
+      });
+      setApplications(prev => [...prev, created as RebirthApplication]);
       message.success('重生申请提交成功，等待审核');
       setIsModalVisible(false);
       setSelectedCustomer(null);
@@ -261,7 +263,7 @@ const RebirthApplication: React.FC = () => {
                 rules={[{ required: true, message: '请选择重生原因' }]}
               >
                 <Select placeholder="请选择重生原因">
-                  {rebirthReasons.map((reason, index) => (
+                  {((window as any).__rebirthReasons || []).map((reason: string, index: number) => (
                     <Option key={index} value={reason}>
                       {reason}
                     </Option>

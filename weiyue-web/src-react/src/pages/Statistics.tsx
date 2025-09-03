@@ -13,6 +13,7 @@ import {
 import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import type { StatisticsData } from '../types';
+import { StatisticsAPI } from '../services/api';
 
 const { Option } = Select;
 const { Panel } = Collapse;
@@ -30,36 +31,8 @@ const Statistics: React.FC = () => {
   const loadStatisticsData = async () => {
     try {
       setLoading(true);
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // 模拟数据
-      const mockData: StatisticsData = {
-        industry: [
-          { name: '制造业', count: 45, percentage: 35.7 },
-          { name: '房地产', count: 32, percentage: 25.4 },
-          { name: '贸易', count: 28, percentage: 22.2 },
-          { name: '科技', count: 12, percentage: 9.5 },
-          { name: '其他', count: 9, percentage: 7.2 }
-        ],
-        region: [
-          { name: '华东', count: 38, percentage: 30.2 },
-          { name: '华北', count: 35, percentage: 27.8 },
-          { name: '华南', count: 28, percentage: 22.2 },
-          { name: '华中', count: 15, percentage: 11.9 },
-          { name: '其他', count: 10, percentage: 7.9 }
-        ],
-        trend: [
-          { date: '2024-01', count: 12 },
-          { date: '2024-02', count: 15 },
-          { date: '2024-03', count: 18 },
-          { date: '2024-04', count: 22 },
-          { date: '2024-05', count: 25 },
-          { date: '2024-06', count: 28 }
-        ]
-      };
-      
-      setStatisticsData(mockData);
+      const data = await StatisticsAPI.get();
+      setStatisticsData(data as StatisticsData);
     } catch (error) {
       console.error('加载统计数据失败:', error);
     } finally {

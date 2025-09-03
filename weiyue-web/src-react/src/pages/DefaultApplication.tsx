@@ -14,8 +14,7 @@ import {
 } from 'antd';
 import { UploadOutlined, SaveOutlined, SendOutlined } from '@ant-design/icons';
 import type { DefaultApplication, Customer, DefaultReason } from '../types';
-import { mockCustomers, mockDefaultReasons } from '../services/mockData';
-import { severityOptions } from '../services/mockData';
+import { CustomerAPI, ReasonAPI, OptionsAPI, DefaultApplicationAPI } from '../services/api';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -28,9 +27,14 @@ const DefaultApplication: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
   useEffect(() => {
-    // 模拟从API获取数据
-    setCustomers(mockCustomers);
-    setReasons(mockDefaultReasons.filter(r => r.isEnabled));
+    (async () => {
+      const [customersRes, reasonsRes] = await Promise.all([
+        CustomerAPI.list(),
+        ReasonAPI.list()
+      ]);
+      setCustomers(customersRes as Customer[]);
+      setReasons((reasonsRes as DefaultReason[]).filter(r => r.isEnabled));
+    })().catch(console.error);
   }, []);
 
   const handleCustomerChange = (customerId: string) => {
@@ -58,17 +62,13 @@ const DefaultApplication: React.FC = () => {
         return;
       }
       
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const application: Partial<DefaultApplication> = {
+      // API 调用
+      await DefaultApplicationAPI.create({
         ...values,
         customerName: selectedCustomer?.name,
         status: 'pending',
         createTime: new Date().toLocaleString()
-      };
-      
-      console.log('提交的申请数据:', application);
+      });
       message.success('申请提交成功，等待审核');
       form.resetFields();
       setSelectedCustomer(null);
@@ -174,9 +174,9 @@ const DefaultApplication: React.FC = () => {
             rules={[{ required: true, message: '请选择严重性' }]}
           >
             <Radio.Group>
-              {severityOptions.map(option => (
-                <Radio key={option.value} value={option.value}>
-                  {option.label}
+              {(['high', 'medium', 'low'] as const).map(value => (
+                <Radio key={value} value={value}>
+                  {value === 'high' ? '高' : value === 'medium' ? '中' : '低'}
                 </Radio>
               ))}
             </Radio.Group>

@@ -14,7 +14,7 @@ import {
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { DefaultReason } from '../types';
-import { mockDefaultReasons } from '../services/mockData';
+import { ReasonAPI } from '../services/api';
 
 const DefaultReasonMaintenance: React.FC = () => {
   const [data, setData] = useState<DefaultReason[]>([]);
@@ -24,8 +24,7 @@ const DefaultReasonMaintenance: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // 模拟从API获取数据
-    setData(mockDefaultReasons);
+    ReasonAPI.list().then((list: any) => setData(list as DefaultReason[])).catch(console.error);
   }, []);
 
   const handleAdd = () => {
@@ -40,7 +39,8 @@ const DefaultReasonMaintenance: React.FC = () => {
     setIsModalVisible(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    await ReasonAPI.remove(id);
     setData(prev => prev.filter(item => item.id !== id));
     message.success('删除成功');
   };
@@ -50,26 +50,19 @@ const DefaultReasonMaintenance: React.FC = () => {
       const values = await form.validateFields();
       setLoading(true);
       
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
       if (editingRecord) {
         // 编辑
-        setData(prev => prev.map(item => 
-          item.id === editingRecord.id 
-            ? { ...item, ...values, updateTime: new Date().toLocaleString() }
-            : item
-        ));
+        const updated = await ReasonAPI.update(editingRecord.id, { ...values, updateTime: new Date().toLocaleString() });
+        setData(prev => prev.map(item => item.id === editingRecord.id ? { ...item, ...values, updateTime: (updated as any).updateTime } : item));
         message.success('编辑成功');
       } else {
         // 新增
-        const newRecord: DefaultReason = {
-          id: Date.now().toString(),
+        const created = await ReasonAPI.create({
           ...values,
           createTime: new Date().toLocaleString(),
           updateTime: new Date().toLocaleString()
-        };
-        setData(prev => [...prev, newRecord]);
+        });
+        setData(prev => [...prev, created as DefaultReason]);
         message.success('新增成功');
       }
       

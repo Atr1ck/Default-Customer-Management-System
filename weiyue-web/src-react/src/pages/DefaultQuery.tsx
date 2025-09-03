@@ -17,7 +17,7 @@ import {
 } from 'antd';
 import { SearchOutlined, ReloadOutlined, ExportOutlined, EyeOutlined } from '@ant-design/icons';
 import type { DefaultReview, QueryParams } from '../types';
-import { mockDefaultReviews, statusOptions } from '../services/mockData';
+import { DefaultReviewAPI, OptionsAPI } from '../services/api';
 import dayjs from 'dayjs';
 
 const { Option } = Select;
@@ -31,8 +31,14 @@ const DefaultQuery: React.FC = () => {
   const [searchForm] = Form.useForm();
 
   useEffect(() => {
-    // 模拟从API获取数据
-    setData(mockDefaultReviews);
+    (async () => {
+      const [list, statusOpts] = await Promise.all([
+        DefaultReviewAPI.list(),
+        OptionsAPI.status()
+      ]);
+      setData(list as DefaultReview[]);
+      (window as any).__statusOptions = statusOpts;
+    })().catch(console.error);
   }, []);
 
   const handleSearch = async (values: any) => {
@@ -63,7 +69,7 @@ const DefaultQuery: React.FC = () => {
   const handleReset = () => {
     searchForm.resetFields();
     // 重新加载所有数据
-    setData(mockDefaultReviews);
+    DefaultReviewAPI.list().then((list: any) => setData(list as DefaultReview[]));
   };
 
   const handleExport = async () => {
@@ -215,7 +221,12 @@ const DefaultQuery: React.FC = () => {
             <Col span={6}>
               <Form.Item name="status" label="审核状态">
                 <Select placeholder="请选择状态" allowClear>
-                  {statusOptions.map(option => (
+                  {((window as any).__statusOptions || [
+                    { label: '全部', value: '' },
+                    { label: '待审核', value: 'pending' },
+                    { label: '已通过', value: 'approved' },
+                    { label: '已拒绝', value: 'rejected' }
+                  ]).map((option: any) => (
                     <Option key={option.value} value={option.value}>
                       {option.label}
                     </Option>
