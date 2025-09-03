@@ -9,6 +9,15 @@ class DefaultReason:
         self.create_time = create_time  # 记录创建时间
         self.update_time = update_time  # 记录更新时间
 
+    def to_dict(self):
+        return {
+            'reason_id': self.reason_id,
+            'reason_content': self.reason_content,
+            'is_enabled': self.is_enabled,
+            'create_time': self.create_time,
+            'update_time': self.update_time
+        }
+
     def __repr__(self):
         return f"<DefaultReason {self.reason_id}: {self.reason_content}>"
 
@@ -21,6 +30,15 @@ class RecoveryReason:
         self.is_enabled = is_enabled  # 是否启用（1=启用，0=禁用）
         self.create_time = create_time  # 记录创建时间
         self.update_time = update_time  # 记录更新时间
+
+    def to_dict(self):
+        return {
+            'recovery_id': self.recovery_id,
+            'recovery_content': self.recovery_content,
+            'is_enabled': self.is_enabled,
+            'create_time': self.create_time,
+            'update_time': self.update_time
+        }
 
     def __repr__(self):
         return f"<RecoveryReason {self.recovery_id}: {self.recovery_content}>"
@@ -39,6 +57,18 @@ class CustomerInfo:
         self.is_default = is_default  # 当前是否为违约客户（1=是，0=否）
         self.create_time = create_time  # 客户记录创建时间
         self.update_time = update_time  # 客户记录更新时间
+
+    def to_dict(self):
+        return {
+            'customer_id': self.customer_id,
+            'customer_name': self.customer_name,
+            'current_external_rating': self.current_external_rating,
+            'industry_type': self.industry_type,
+            'region': self.region,
+            'is_default': self.is_default,
+            'create_time': self.create_time,
+            'update_time': self.update_time
+        }
 
     def __repr__(self):
         return f"<CustomerInfo {self.customer_id}: {self.customer_name}>"
@@ -63,6 +93,22 @@ class DefaultApplication:
         self.audit_time = audit_time  # 审核时间
         self.audit_remarks = audit_remarks  # 审核备注
 
+    def to_dict(self):
+        return {
+            'app_id': self.app_id,
+            'customer_id': self.customer_id,
+            'default_reason_id': self.default_reason_id,
+            'severity_level': self.severity_level,
+            'remarks': self.remarks,
+            'attachment_url': self.attachment_url,
+            'applicant_id': self.applicant_id,
+            'apply_time': self.apply_time,
+            'audit_status': self.audit_status,
+            'auditor_id': self.auditor_id,
+            'audit_time': self.audit_time,
+            'audit_remarks': self.audit_remarks
+        }
+
     def __repr__(self):
         return f"<DefaultApplication {self.app_id}: Customer {self.customer_id}>"
 
@@ -83,6 +129,20 @@ class RecoveryApplication:
         self.audit_time = audit_time  # 审核时间
         self.audit_remarks = audit_remarks  # 审核备注
 
+    def to_dict(self):
+        return {
+            'recovery_app_id': self.recovery_app_id,
+            'customer_id': self.customer_id,
+            'original_default_app_id': self.original_default_app_id,
+            'recovery_reason_id': self.recovery_reason_id,
+            'applicant_id': self.applicant_id,
+            'apply_time': self.apply_time,
+            'audit_status': self.audit_status,
+            'auditor_id': self.auditor_id,
+            'audit_time': self.audit_time,
+            'audit_remarks': self.audit_remarks
+        }
+
     def __repr__(self):
         return f"<RecoveryApplication {self.recovery_app_id}: Customer {self.customer_id}>"
 
@@ -101,6 +161,19 @@ class UserInfo:
         self.email = email  # 邮箱
         self.create_time = create_time  # 用户创建时间
         self.update_time = update_time  # 用户信息更新时间
+
+    def to_dict(self):
+        return {
+            'user_id': self.user_id,
+            'user_name': self.user_name,
+            'real_name': self.real_name,
+            'department': self.department,
+            'role': self.role,
+            'phone': self.phone,
+            'email': self.email,
+            'create_time': self.create_time,
+            'update_time': self.update_time
+        }
 
     def __repr__(self):
         return f"<UserInfo {self.user_id}: {self.real_name}>"
