@@ -1,5 +1,5 @@
 from db.dao import DefaultReasonDAO, RecoveryReasonDAO
-from services.base_service import BaseService
+from .base_service import BaseService
 
 class ReasonService(BaseService):
     """违约和重生原因管理服务"""

@@ -1,5 +1,5 @@
 from db.dao import UserDAO
-from services.base_service import BaseService
+from .base_service import BaseService
 import hashlib
 
 class UserService(BaseService):
