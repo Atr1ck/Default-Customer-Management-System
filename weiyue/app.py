@@ -10,17 +10,22 @@ from config import SERVER_CONFIG
 class CustomJSONEncoder(JSONEncoder):
     def encode(self, obj):
         # 确保中文不被转为Unicode转义字符
-        return json.dumps(obj, ensure_ascii=False)
+        return json.dumps(obj, ensure_ascii=False, encoding='utf-8')  # 补充encoding参数
 
 # 初始化Flask应用
 app = Flask(__name__)
+
+app.config['JSON_AS_ASCII'] = False  # 新增：禁用ASCII编码，中文不转义
 # 应用自定义JSON编码器
 app.json_encoder = CustomJSONEncoder
+
 
 # 设置全局响应头，强制UTF-8编码
 @app.after_request
 def after_request(response):
     response.headers['Content-Type'] = 'application/json; charset=utf-8'
+    # 新增：防止某些浏览器默认用GBK解析，补充编码声明
+    response.headers['Content-Encoding'] = 'utf-8'
     return response
 
 # 初始化服务
@@ -40,7 +45,7 @@ def handle_exception(e):
 @app.route('/test', methods=['GET'])
 def test():
     # 测试中文显示
-    return jsonify({'success': True, 'message': '测试接口正常，中文显示测试：成功'})
+    return jsonify({'success': True, 'message': '测试接口正常，中文显示测试：成功！特殊符号测试：【】、（）','data': {'测试字段': '中文值'})
     
 # 用户相关接口
 @app.route('/api/login', methods=['POST'])
