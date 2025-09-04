@@ -1,4 +1,4 @@
-from db.dao import UserDAO
+from dao.UserDAO import UserDAO
 from .base_service import BaseService
 import hashlib
 
