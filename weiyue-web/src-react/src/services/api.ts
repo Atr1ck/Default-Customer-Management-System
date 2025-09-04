@@ -63,7 +63,7 @@ async function apiGetAbsolute<T>(absolutePath: string): Promise<T> {
 
 // 用户相关API
 export const UserAPI = {
-  login: (username: string, password: string) => 
+  login: (username: string, password: string) =>
     apiPost<{success: boolean, data?: Record<string, unknown>, message?: string}>('/login', { username, password })
 };
 
@@ -157,7 +157,7 @@ export const DefaultApplicationAPI = {
     remarks?: string;
     attachment_url?: string;
   }) => apiPost<{success: boolean, message: string}>('/default-applications', data),
-  
+
   audit: (appId: string, data: {
     auditor_id: string;
     audit_status: string;
@@ -173,7 +173,7 @@ export const RecoveryApplicationAPI = {
     recovery_reason_id: string;
     applicant_id: string;
   }) => apiPost<{success: boolean, message: string}>('/recovery-applications', data),
-  
+
   audit: (appId: string, data: {
     auditor_id: string;
     audit_status: string;
@@ -271,5 +271,3 @@ export const OptionsAPI = {
 export const StatisticsAPI = {
   get: async (): Promise<StatisticsData> => unwrapResponse<StatisticsData>(apiGet(`/statistics`))
 };
-
-
