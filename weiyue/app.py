@@ -99,6 +99,73 @@ def get_default_reason(reason_id):
         })
     return jsonify({'success': False, 'message': '违约原因不存在'}), 404
 
+@app.route('/api/default-reasons/<reason_id>', methods=['PUT'])
+def update_default_reason(reason_id):
+    """
+    修改违约原因
+    :param reason_id: 要修改的违约原因ID（从URL路径获取）
+    :请求体（JSON）: {
+        "reason_content": "新的违约原因描述",  // 可选（不修改则不传递）
+        "is_enabled": 1  // 可选（0=禁用，1=启用，不修改则不传递）
+    }
+    """
+    # 1. 获取请求体数据
+    update_data = request.json
+    if not update_data:
+        return jsonify({
+            "success": False,
+            "message": "请求体不能为空，需传递要修改的字段"
+        }), 400
+
+    # 2. 调用服务层方法
+    success, message = reason_service.update_default_reason(reason_id, update_data)
+
+    # 3. 返回结果
+    if success:
+        return jsonify({
+            "success": True,
+            "message": message,
+            "data": {"reason_id": reason_id}  // 返回修改的ID，方便前端确认
+        })
+    else:
+        # 根据错误类型返回对应状态码
+        if "未找到" in message:
+            status_code = 404
+        elif "参数错误" in message:
+            status_code = 400
+        else:
+            status_code = 500
+        return jsonify({
+            "success": False,
+            "message": message
+        }), status_code
+
+# -------------------------- 重生原因修改接口 --------------------------
+@app.route('/api/recovery-reasons/<reason_id>', methods=['PUT'])
+def update_recovery_reason(reason_id):
+    """修改重生原因（与违约原因接口逻辑一致）"""
+    update_data = request.json
+    if not update_data:
+        return jsonify({
+            "success": False,
+            "message": "请求体不能为空，需传递要修改的字段"
+        }), 400
+
+    success, message = reason_service.update_recovery_reason(reason_id, update_data)
+
+    if success:
+        return jsonify({
+            "success": True,
+            "message": message,
+            "data": {"reason_id": reason_id}
+        })
+    else:
+        status_code = 404 if "未找到" in message else 400 if "参数错误" in message else 500
+        return jsonify({
+            "success": False,
+            "message": message
+        }), status_code
+
 
 # 重生原因相关接口
 @app.route('/api/recovery-reasons', methods=['GET'])
