@@ -1,79 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Table,
-  Button,
-  Modal,
-  Form,
-  Input,
-  Switch,
-  InputNumber,
-  Space,
-  message,
-  Popconfirm,
-  Tooltip
-} from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Table, Switch, InputNumber } from 'antd';
 import type { DefaultReason } from '../types';
 import { ReasonAPI } from '../services/api';
 
 const DefaultReasonMaintenance: React.FC = () => {
   const [data, setData] = useState<DefaultReason[]>([]);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<DefaultReason | null>(null);
-  const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
+  
 
   useEffect(() => {
     ReasonAPI.list().then((list: any) => setData(list as DefaultReason[])).catch(console.error);
   }, []);
 
-  const handleAdd = () => {
-    setEditingRecord(null);
-    form.resetFields();
-    setIsModalVisible(true);
-  };
-
-  const handleEdit = (record: DefaultReason) => {
-    setEditingRecord(record);
-    form.setFieldsValue(record);
-    setIsModalVisible(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    await ReasonAPI.remove(id);
-    setData(prev => prev.filter(item => item.id !== id));
-    message.success('删除成功');
-  };
-
-  const handleSubmit = async () => {
-    try {
-      const values = await form.validateFields();
-      setLoading(true);
-      
-      if (editingRecord) {
-        // 编辑
-        const updated = await ReasonAPI.update(editingRecord.id, { ...values, updateTime: new Date().toLocaleString() });
-        setData(prev => prev.map(item => item.id === editingRecord.id ? { ...item, ...values, updateTime: (updated as any).updateTime } : item));
-        message.success('编辑成功');
-      } else {
-        // 新增
-        const created = await ReasonAPI.create({
-          ...values,
-          createTime: new Date().toLocaleString(),
-          updateTime: new Date().toLocaleString()
-        });
-        setData(prev => [...prev, created as DefaultReason]);
-        message.success('新增成功');
-      }
-      
-      setIsModalVisible(false);
-      form.resetFields();
-    } catch (error) {
-      console.error('提交失败:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // 只读模式：不提供新增、编辑、删除
 
   const handleOrderChange = (id: string, newOrder: number) => {
     setData(prev => prev.map(item => 
@@ -130,49 +68,13 @@ const DefaultReasonMaintenance: React.FC = () => {
       key: 'updateTime',
       width: 150,
     },
-    {
-      title: '操作',
-      key: 'action',
-      width: 150,
-      render: (_: unknown, record: DefaultReason) => (
-        <Space size="small">
-          <Tooltip title="编辑">
-            <Button
-              type="link"
-              icon={<EditOutlined />}
-              onClick={() => handleEdit(record)}
-            />
-          </Tooltip>
-          <Popconfirm
-            title="确定要删除这个违约原因吗？"
-            onConfirm={() => handleDelete(record.id)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <Tooltip title="删除">
-              <Button
-                type="link"
-                danger
-                icon={<DeleteOutlined />}
-              />
-            </Tooltip>
-          </Popconfirm>
-        </Space>
-      ),
-    },
   ];
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>违约原因维护</h2>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={handleAdd}
-        >
-          新增原因
-        </Button>
+      <div style={{ marginBottom: 16 }}>
+        <h2>违约原因列表</h2>
+        <div style={{ color: '#888' }}>仅展示后端启用的违约原因</div>
       </div>
 
       <Table
@@ -187,44 +89,7 @@ const DefaultReasonMaintenance: React.FC = () => {
         scroll={{ x: 800 }}
       />
 
-      <Modal
-        title={editingRecord ? '编辑违约原因' : '新增违约原因'}
-        open={isModalVisible}
-        onOk={handleSubmit}
-        onCancel={() => setIsModalVisible(false)}
-        confirmLoading={loading}
-        destroyOnClose
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          initialValues={{ isEnabled: true, order: 1 }}
-        >
-          <Form.Item
-            name="content"
-            label="原因内容"
-            rules={[{ required: true, message: '请输入原因内容' }]}
-          >
-            <Input.TextArea rows={3} placeholder="请输入违约原因内容" />
-          </Form.Item>
-          
-          <Form.Item
-            name="order"
-            label="序号"
-            rules={[{ required: true, message: '请输入序号' }]}
-          >
-            <InputNumber min={1} style={{ width: '100%' }} />
-          </Form.Item>
-          
-          <Form.Item
-            name="isEnabled"
-            label="是否启用"
-            valuePropName="checked"
-          >
-            <Switch />
-          </Form.Item>
-        </Form>
-      </Modal>
+      {/* 只读模式，无弹窗 */}
     </div>
   );
 };

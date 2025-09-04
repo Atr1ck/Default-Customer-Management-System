@@ -45,19 +45,21 @@ const DefaultQuery: React.FC = () => {
     try {
       setLoading(true);
       
-      // 处理日期范围
-      if (values.dateRange) {
-        values.startDate = values.dateRange[0]?.format('YYYY-MM-DD');
-        values.endDate = values.dateRange[1]?.format('YYYY-MM-DD');
-        delete values.dateRange;
+      // 处理日期范围并构建筛选参数
+      const filters: any = {};
+      if (values.customerName) filters.customerName = values.customerName;
+      if (values.status) filters.status = values.status;
+      if (values.reviewer) filters.reviewer = values.reviewer;
+      
+      if (values.dateRange && values.dateRange.length === 2) {
+        filters.startDate = values.dateRange[0].format('YYYY-MM-DD');
+        filters.endDate = values.dateRange[1].format('YYYY-MM-DD');
       }
       
-      // 模拟搜索API调用
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // 这里应该调用实际的搜索API
-      console.log('搜索参数:', values);
-      message.success('搜索完成');
+      // 调用实际的搜索API
+      const result = await DefaultReviewAPI.list(filters);
+      setData(result);
+      message.success(`搜索完成，找到 ${result.length} 条记录`);
     } catch (error) {
       console.error('搜索失败:', error);
       message.error('搜索失败');
@@ -66,10 +68,19 @@ const DefaultQuery: React.FC = () => {
     }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     searchForm.resetFields();
     // 重新加载所有数据
-    DefaultReviewAPI.list().then((list: any) => setData(list as DefaultReview[]));
+    try {
+      setLoading(true);
+      const result = await DefaultReviewAPI.list();
+      setData(result);
+    } catch (error) {
+      console.error('重置失败:', error);
+      message.error('重置失败');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleExport = async () => {

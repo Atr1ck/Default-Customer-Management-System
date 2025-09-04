@@ -9,12 +9,11 @@ import {
   Card,
   message,
   Space,
-  Divider,
-  Alert
+  Divider
 } from 'antd';
 import { UploadOutlined, SaveOutlined, SendOutlined } from '@ant-design/icons';
 import type { DefaultApplication, Customer, DefaultReason } from '../types';
-import { CustomerAPI, ReasonAPI, OptionsAPI, DefaultApplicationAPI } from '../services/api';
+import { CustomerAPI, ReasonAPI, DefaultApplicationAPI } from '../services/api';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -24,7 +23,6 @@ const DefaultApplication: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [reasons, setReasons] = useState<DefaultReason[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -32,23 +30,19 @@ const DefaultApplication: React.FC = () => {
         CustomerAPI.list(),
         ReasonAPI.list()
       ]);
-      setCustomers(customersRes as Customer[]);
+      // 只显示未违约的客户
+      setCustomers((customersRes as Customer[]).filter(c => !c.isDefaulted));
       setReasons((reasonsRes as DefaultReason[]).filter(r => r.isEnabled));
     })().catch(console.error);
   }, []);
 
   const handleCustomerChange = (customerId: string) => {
     const customer = customers.find(c => c.id === customerId);
-    setSelectedCustomer(customer || null);
     
     if (customer) {
       form.setFieldsValue({
         externalLevel: customer.externalLevel
       });
-      
-      if (customer.isDefaulted) {
-        message.warning('该客户已经违约，请勿重复申请');
-      }
     }
   };
 
@@ -56,22 +50,27 @@ const DefaultApplication: React.FC = () => {
     try {
       setLoading(true);
       
-      // 验证客户是否已违约
-      if (selectedCustomer?.isDefaulted) {
-        message.error('该客户已经违约，无法重复申请');
+      // 从本地获取登录用户ID
+      const stored = localStorage.getItem('currentUser');
+      const currentUserId = stored ? (() => { try { return JSON.parse(stored)?.user_id as string | undefined; } catch { return undefined; } })() : undefined;
+      if (!currentUserId) {
+        message.error('请先登录后再提交违约申请');
         return;
       }
       
-      // API 调用
-      await DefaultApplicationAPI.create({
-        ...values,
-        customerName: selectedCustomer?.name,
-        status: 'pending',
-        createTime: new Date().toLocaleString()
-      });
+      // 组装后端需要的字段
+      const payload = {
+        customer_id: values.customerId, // 客户ID
+        default_reason_id: values.default_reason_id, // 违约原因ID
+        severity_level: values.severity, // 严重程度
+        applicant_id: currentUserId, // 登录用户ID
+        remarks: values.remark, // 备注
+        attachment_url: values.attachments // 附件URL
+      };
+      
+      await DefaultApplicationAPI.create(payload);
       message.success('申请提交成功，等待审核');
       form.resetFields();
-      setSelectedCustomer(null);
       
     } catch (error) {
       console.error('提交失败:', error);
@@ -101,15 +100,6 @@ const DefaultApplication: React.FC = () => {
         <p style={{ color: '#666' }}>请填写违约认定申请信息，所有带 * 的字段为必填项</p>
       </div>
 
-      {selectedCustomer?.isDefaulted && (
-        <Alert
-          message="警告"
-          description="该客户已经违约，请勿重复申请"
-          type="warning"
-          showIcon
-          style={{ marginBottom: 16 }}
-        />
-      )}
 
       <Card>
         <Form
@@ -150,15 +140,13 @@ const DefaultApplication: React.FC = () => {
           </Form.Item>
 
           <Form.Item
-            name="reasons"
+            name="default_reason_id"
             label="违约原因"
             rules={[{ required: true, message: '请选择违约原因' }]}
           >
             <Select
-              mode="multiple"
               placeholder="请选择违约原因"
               optionFilterProp="children"
-              maxTagCount={3}
             >
               {reasons.map(reason => (
                 <Option key={reason.id} value={reason.id}>
@@ -230,7 +218,6 @@ const DefaultApplication: React.FC = () => {
               <Button
                 onClick={() => {
                   form.resetFields();
-                  setSelectedCustomer(null);
                 }}
               >
                 重置

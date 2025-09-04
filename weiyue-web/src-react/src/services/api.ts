@@ -1,4 +1,16 @@
+import type { DefaultReview, StatisticsData } from '../types';
+
 const API_BASE = 'http://localhost:5000/api';
+
+// 解包后端统一响应 { success, data, message }
+type ApiEnvelope<T> = { success: boolean; data?: T; message?: string };
+async function unwrapResponse<T>(p: Promise<ApiEnvelope<T>>): Promise<T> {
+  const resp: ApiEnvelope<T> = await p;
+  if (resp.success === false) {
+    throw new Error(resp.message || '接口返回失败');
+  }
+  return resp.data as T;
+}
 
 export async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`);
@@ -39,6 +51,16 @@ export async function apiDelete(path: string): Promise<void> {
   }
 }
 
+// 非 /api 前缀的绝对路径 GET（如 /test）
+async function apiGetAbsolute<T>(absolutePath: string): Promise<T> {
+  const url = `http://localhost:5000${absolutePath}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`GET ${absolutePath} ${res.status}`);
+  }
+  return res.json();
+}
+
 // 用户相关API
 export const UserAPI = {
   login: (username: string, password: string) => 
@@ -47,14 +69,82 @@ export const UserAPI = {
 
 // 违约原因相关API
 export const DefaultReasonAPI = {
-  list: () => apiGet<{success: boolean, data: Record<string, unknown>[]}>('/default-reasons'),
-  getById: (id: string) => apiGet<{success: boolean, data?: Record<string, unknown>, message?: string}>(`/default-reasons/${id}`)
+  list: async () => {
+    type BackendReason = {
+      reason_id: string;
+      reason_content: string;
+      is_enabled: number | boolean;
+      create_time: string;
+      update_time?: string;
+    };
+    const data = await unwrapResponse<BackendReason[]>(apiGet(`/default-reasons`));
+    return data.map((r, idx) => ({
+      id: r.reason_id,
+      content: r.reason_content,
+      isEnabled: Boolean(r.is_enabled),
+      order: idx + 1,
+      createTime: r.create_time,
+      updateTime: r.update_time || ''
+    }));
+  },
+  getById: async (id: string) => {
+    type BackendReason = {
+      reason_id: string;
+      reason_content: string;
+      is_enabled: number | boolean;
+      create_time: string;
+      update_time?: string;
+    };
+    const r = await unwrapResponse<BackendReason>(apiGet(`/default-reasons/${id}`));
+    return {
+      id: r.reason_id,
+      content: r.reason_content,
+      isEnabled: Boolean(r.is_enabled),
+      order: 1,
+      createTime: r.create_time,
+      updateTime: r.update_time || ''
+    };
+  }
 };
 
 // 重生原因相关API
 export const RecoveryReasonAPI = {
-  list: () => apiGet<{success: boolean, data: Record<string, unknown>[]}>('/recovery-reasons'),
-  getById: (id: string) => apiGet<{success: boolean, data?: Record<string, unknown>, message?: string}>(`/recovery-reasons/${id}`)
+  list: async () => {
+    type BackendReason = {
+      recovery_id: string;
+      recovery_content: string;
+      is_enabled: number | boolean;
+      create_time: string;
+      update_time?: string;
+    };
+    const data = await unwrapResponse<BackendReason[]>(apiGet(`/recovery-reasons`));
+    return data.map((r, idx) => ({
+      id: r.recovery_id,
+      content: r.recovery_content,
+      isEnabled: Boolean(r.is_enabled),
+      order: idx + 1,
+      createTime: r.create_time,
+      updateTime: r.update_time || ''
+    }));
+  },
+  getById: async (id: string) => {
+    type BackendReason = {
+      recovery_id: string;
+      recovery_content: string;
+      is_enabled: number | boolean;
+      create_time: string;
+      update_time?: string;
+    };
+    const r = await unwrapResponse<BackendReason>(apiGet(`/recovery-reasons/${id}`));
+    return {
+      id: r.recovery_id,
+      content: r.recovery_content,
+      isEnabled: Boolean(r.is_enabled),
+      order: 1,
+      createTime: r.create_time,
+      updateTime: r.update_time || ''
+    };
+  }
 };
 
 // 违约申请相关API
@@ -93,14 +183,14 @@ export const RecoveryApplicationAPI = {
 
 // 测试接口
 export const TestAPI = {
-  test: () => apiGet<{success: boolean, message: string}>('/test')
+  test: () => apiGetAbsolute<{success: boolean, message: string}>(`/test`)
 };
 
 // 为了保持向后兼容，保留原有的API名称
 export const ReasonAPI = DefaultReasonAPI;
 export const RebirthAPI = {
-  listApplications: () => apiGet<Record<string, unknown>>('/recovery-applications'),
-  listReviews: () => apiGet<Record<string, unknown>>('/recovery-applications'),
+  listApplications: () => unwrapResponse<Record<string, unknown>[]>(apiGet(`/recovery-applications`)),
+  listReviews: (status?: 'pending' | 'approved' | 'rejected') => unwrapResponse<Record<string, unknown>[]>(apiGet(`/recovery-applications${status ? `?status=${status}` : ''}`)),
   reasons: () => RecoveryReasonAPI.list(),
   createApplication: (data: Record<string, unknown>) => RecoveryApplicationAPI.create(data as {
     customer_id: string;
@@ -111,20 +201,75 @@ export const RebirthAPI = {
 };
 
 export const CustomerAPI = {
-  list: () => apiGet('/customers')
+  list: async () => {
+    type BackendCustomer = {
+      customer_id: string;
+      customer_name: string;
+      current_external_rating: string;
+      is_default: number | boolean;
+      industry_type: string;
+      region: string;
+    };
+    const data = await unwrapResponse<BackendCustomer[]>(apiGet(`/customers`));
+    return data.map((c) => ({
+      id: c.customer_id,
+      name: c.customer_name,
+      externalLevel: c.current_external_rating,
+      isDefaulted: Boolean(c.is_default),
+      industry: c.industry_type,
+      region: c.region
+    }));
+  },
+  listDefaulted: async () => {
+    type BackendCustomer = {
+      customer_id: string;
+      customer_name: string;
+      current_external_rating: string;
+      is_default: number | boolean;
+      industry_type: string;
+      region: string;
+    };
+    const data = await unwrapResponse<BackendCustomer[]>(apiGet(`/customers/defaulted`));
+    return data.map((c) => ({
+      id: c.customer_id,
+      name: c.customer_name,
+      externalLevel: c.current_external_rating,
+      isDefaulted: Boolean(c.is_default),
+      industry: c.industry_type,
+      region: c.region
+    }));
+  }
 };
 
 export const DefaultReviewAPI = {
-  list: () => apiGet('/defaultReviews')
+  list: async (filters?: {
+    customerName?: string;
+    status?: 'pending' | 'approved' | 'rejected';
+    startDate?: string;
+    endDate?: string;
+    reviewer?: string;
+  }): Promise<DefaultReview[]> => {
+    const params = new URLSearchParams();
+    if (filters?.customerName) params.append('customerName', filters.customerName);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.reviewer) params.append('reviewer', filters.reviewer);
+    
+    const queryString = params.toString();
+    const url = `/defaultReviews${queryString ? `?${queryString}` : ''}`;
+    return unwrapResponse<DefaultReview[]>(apiGet(url));
+  }
 };
 
+type OptionItem = { label: string; value: string };
 export const OptionsAPI = {
-  severity: () => apiGet('/severityOptions'),
-  status: () => apiGet('/statusOptions')
+  severity: async (): Promise<OptionItem[]> => unwrapResponse<OptionItem[]>(apiGet(`/severityOptions`)),
+  status: async (): Promise<OptionItem[]> => unwrapResponse<OptionItem[]>(apiGet(`/statusOptions`))
 };
 
 export const StatisticsAPI = {
-  get: () => apiGet('/statistics')
+  get: async (): Promise<StatisticsData> => unwrapResponse<StatisticsData>(apiGet(`/statistics`))
 };
 
 

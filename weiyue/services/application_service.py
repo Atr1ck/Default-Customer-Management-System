@@ -100,9 +100,14 @@ class ApplicationService(BaseService):
                 return False
                 
             # 验证原违约申请是否存在
-            original_app = DefaultApplicationDAO.get_by_id(original_default_app_id)
+            # 若未指定原违约申请ID，则按客户查找最新一条
+            original_app = None
+            if original_default_app_id:
+                original_app = DefaultApplicationDAO.get_by_id(original_default_app_id)
+            else:
+                original_app = DefaultApplicationDAO.get_latest_by_customer(customer_id)
             if not original_app:
-                self.logger.error(f"创建重生申请失败：原违约申请 {original_default_app_id} 不存在")
+                self.logger.error(f"创建重生申请失败：未找到客户 {customer_id} 的原违约申请")
                 return False
                 
             # 验证重生原因是否存在

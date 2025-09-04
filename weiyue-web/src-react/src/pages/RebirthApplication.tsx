@@ -15,9 +15,9 @@ import {
   Col,
   Divider
 } from 'antd';
-import { ReloadOutlined, FileTextOutlined, SendOutlined } from '@ant-design/icons';
+import { ReloadOutlined, SendOutlined } from '@ant-design/icons';
 import type { RebirthApplication, Customer } from '../types';
-import { CustomerAPI, RebirthAPI } from '../services/api';
+import { CustomerAPI, RecoveryReasonAPI, RecoveryApplicationAPI } from '../services/api';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -29,17 +29,17 @@ const RebirthApplication: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [rebirthReasons, setRebirthReasons] = useState<{ id: string; content: string }[]>([]);
 
   useEffect(() => {
     (async () => {
-      const [customers, apps, reasons] = await Promise.all([
-        CustomerAPI.list(),
-        RebirthAPI.listApplications(),
-        RebirthAPI.reasons()
+      const [customers, reasons] = await Promise.all([
+        CustomerAPI.listDefaulted(),
+        RecoveryReasonAPI.list()
       ]);
-      setDefaultedCustomers((customers as Customer[]).filter(c => c.isDefaulted));
-      setApplications(apps as RebirthApplication[]);
-      (window as any).__rebirthReasons = (reasons as any[]).map(r => r.label);
+      setDefaultedCustomers(customers as Customer[]);
+      setApplications([] as RebirthApplication[]);
+      setRebirthReasons((reasons as any[]).map((r: any) => ({ id: r.id, content: r.content })));
     })().catch(console.error);
   }, []);
 
@@ -54,17 +54,22 @@ const RebirthApplication: React.FC = () => {
       if (!selectedCustomer) return;
       
       setLoading(true);
-      const created = await RebirthAPI.createApplication({
-        customerId: selectedCustomer.id,
-        customerName: selectedCustomer.name,
-        originalReason: '经营不善导致资金链断裂',
-        severity: 'high',
-        rebirthReason: values.rebirthReason,
-        status: 'pending',
-        createTime: new Date().toLocaleString(),
-        updateTime: new Date().toLocaleString()
-      });
-      setApplications(prev => [...prev, created as RebirthApplication]);
+      // 从本地获取登录用户ID
+      const stored = localStorage.getItem('currentUser');
+      const currentUserId = stored ? (() => { try { return JSON.parse(stored)?.user_id as string | undefined; } catch { return undefined; } })() : undefined;
+      if (!currentUserId) {
+        message.error('请先登录后再提交重生申请');
+        return;
+      }
+
+      // 组装后端需要的字段
+      const payload = {
+        customer_id: selectedCustomer.id,
+        original_default_app_id: '', // 留空由后端自动匹配最近的违约申请
+        recovery_reason_id: values.recovery_reason_id,
+        applicant_id: currentUserId
+      };
+      await RecoveryApplicationAPI.create(payload as any);
       message.success('重生申请提交成功，等待审核');
       setIsModalVisible(false);
       setSelectedCustomer(null);
@@ -258,14 +263,14 @@ const RebirthApplication: React.FC = () => {
               onFinish={handleSubmit}
             >
               <Form.Item
-                name="rebirthReason"
+                name="recovery_reason_id"
                 label="重生原因"
                 rules={[{ required: true, message: '请选择重生原因' }]}
               >
                 <Select placeholder="请选择重生原因">
-                  {((window as any).__rebirthReasons || []).map((reason: string, index: number) => (
-                    <Option key={index} value={reason}>
-                      {reason}
+                  {rebirthReasons.map((reason) => (
+                    <Option key={reason.id} value={reason.id}>
+                      {reason.content}
                     </Option>
                   ))}
                 </Select>

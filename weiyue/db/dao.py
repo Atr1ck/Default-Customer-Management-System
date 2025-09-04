@@ -107,6 +107,34 @@ class CustomerDAO:
         finally:
             db.close()
 
+    @staticmethod
+    def list_all():
+        """获取所有客户信息"""
+        db = Database()
+        try:
+            sql = "SELECT * FROM t_customer_info ORDER BY create_time DESC"
+            success, msg = db.execute(sql)
+            if success:
+                results = db.fetchall()
+                return [dict_to_model(row, CustomerInfo) for row in results]
+            return []
+        finally:
+            db.close()
+
+    @staticmethod
+    def list_defaulted():
+        """获取已违约客户"""
+        db = Database()
+        try:
+            sql = "SELECT * FROM t_customer_info WHERE is_default = 1 ORDER BY update_time DESC, create_time DESC"
+            success, msg = db.execute(sql)
+            if success:
+                results = db.fetchall()
+                return [dict_to_model(row, CustomerInfo) for row in results]
+            return []
+        finally:
+            db.close()
+
 
 class DefaultApplicationDAO:
     """违约认定申请数据访问对象"""
@@ -156,6 +184,24 @@ class DefaultApplicationDAO:
             return None
         finally:
             db.close()
+
+    @staticmethod
+    def get_latest_by_customer(customer_id):
+        """获取某客户最新的违约申请（按申请时间倒序）"""
+        db = Database()
+        try:
+            sql = """
+            SELECT * FROM t_default_application 
+            WHERE customer_id = %s 
+            ORDER BY apply_time DESC LIMIT 1
+            """
+            success, msg = db.execute(sql, (customer_id,))
+            if success:
+                row = db.fetchone()
+                return dict_to_model(row, DefaultApplication)
+            return None
+        finally:
+            db.close()
     
     @staticmethod
     def update_audit_status(app_id, auditor_id, audit_status, audit_remarks):
@@ -174,6 +220,81 @@ class DefaultApplicationDAO:
                 return True
             db.rollback()
             return False
+        finally:
+            db.close()
+
+    @staticmethod
+    def list_all():
+        """查询全部违约申请，按申请时间倒序"""
+        db = Database()
+        try:
+            sql = "SELECT * FROM t_default_application ORDER BY apply_time DESC"
+            success, msg = db.execute(sql)
+            if success:
+                rows = db.fetchall()
+                return [dict_to_model(row, DefaultApplication) for row in rows]
+            return []
+        finally:
+            db.close()
+
+    @staticmethod
+    def list_by_status(status):
+        """按审核状态筛选违约申请（待审核/同意/拒绝）"""
+        db = Database()
+        try:
+            sql = "SELECT * FROM t_default_application WHERE audit_status = %s ORDER BY apply_time DESC"
+            success, msg = db.execute(sql, (status,))
+            if success:
+                rows = db.fetchall()
+                return [dict_to_model(row, DefaultApplication) for row in rows]
+            return []
+        finally:
+            db.close()
+
+    @staticmethod
+    def list_with_filters(customer_name=None, status=None, start_date=None, end_date=None, reviewer=None):
+        """多条件筛选违约申请"""
+        db = Database()
+        try:
+            # 构建基础查询
+            sql = """
+            SELECT da.* FROM t_default_application da
+            LEFT JOIN t_customer_info ci ON da.customer_id = ci.customer_id
+            LEFT JOIN t_user_info ui ON da.auditor_id = ui.user_id
+            WHERE 1=1
+            """
+            params = []
+            
+            # 客户名称筛选
+            if customer_name:
+                sql += " AND ci.customer_name LIKE %s"
+                params.append(f"%{customer_name}%")
+            
+            # 审核状态筛选
+            if status:
+                sql += " AND da.audit_status = %s"
+                params.append(status)
+            
+            # 申请时间范围筛选
+            if start_date:
+                sql += " AND da.apply_time >= %s"
+                params.append(f"{start_date} 00:00:00")
+            if end_date:
+                sql += " AND da.apply_time <= %s"
+                params.append(f"{end_date} 23:59:59")
+            
+            # 审核人筛选
+            if reviewer:
+                sql += " AND ui.real_name LIKE %s"
+                params.append(f"%{reviewer}%")
+            
+            sql += " ORDER BY da.apply_time DESC"
+            
+            success, msg = db.execute(sql, params)
+            if success:
+                rows = db.fetchall()
+                return [dict_to_model(row, DefaultApplication) for row in rows]
+            return []
         finally:
             db.close()
 
@@ -242,6 +363,34 @@ class RecoveryApplicationDAO:
                 return True
             db.rollback()
             return False
+        finally:
+            db.close()
+
+    @staticmethod
+    def list_all():
+        """查询全部重生申请，按申请时间倒序"""
+        db = Database()
+        try:
+            sql = "SELECT * FROM t_recovery_application ORDER BY apply_time DESC"
+            success, msg = db.execute(sql)
+            if success:
+                rows = db.fetchall()
+                return [dict_to_model(row, RecoveryApplication) for row in rows]
+            return []
+        finally:
+            db.close()
+
+    @staticmethod
+    def list_by_status(status):
+        """按审核状态筛选重生申请（待审核/同意/拒绝）"""
+        db = Database()
+        try:
+            sql = "SELECT * FROM t_recovery_application WHERE audit_status = %s ORDER BY apply_time DESC"
+            success, msg = db.execute(sql, (status,))
+            if success:
+                rows = db.fetchall()
+                return [dict_to_model(row, RecoveryApplication) for row in rows]
+            return []
         finally:
             db.close()
 
