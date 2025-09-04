@@ -4,7 +4,11 @@ import json
 from services.reason_service import ReasonService
 from services.application_service import ApplicationService
 from services.user_service import UserService
-from db.dao import CustomerDAO, RecoveryApplicationDAO, DefaultApplicationDAO, DefaultReasonDAO, UserDAO
+from dao.CustomerDAO import CustomerDAO
+from dao.RecoveryApplicationDAO import RecoveryApplicationDAO
+from dao.DefaultApplicationDAO import DefaultApplicationDAO
+from dao.DefaultReasonDAO import DefaultReasonDAO
+from dao.UserDAO import UserDAO
 from config import SERVER_CONFIG
 from flask_cors import CORS
 
