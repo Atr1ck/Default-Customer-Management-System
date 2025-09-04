@@ -5,6 +5,7 @@ from services.reason_service import ReasonService
 from services.application_service import ApplicationService
 from services.user_service import UserService
 from config import SERVER_CONFIG
+from flask_cors import CORS
 
 
 # 自定义JSON提供器，解决中文显示问题
@@ -19,6 +20,8 @@ class CustomJSONProvider(DefaultJSONProvider):
 
 # 初始化Flask应用
 app = Flask(__name__)
+# 启用 CORS，允许前端开发端口访问
+CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173", "http://127.0.0.1:5173"]}}, supports_credentials=False)
 # 应用自定义JSON提供器
 app.json = CustomJSONProvider(app)
 
