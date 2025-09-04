@@ -1,4 +1,5 @@
-from db.dao import DefaultReasonDAO, RecoveryReasonDAO
+from dao.DefaultReasonDAO import DefaultReasonDAO
+from dao.RecoveryReasonDAO import RecoveryReasonDAO
 from .base_service import BaseService
 from db.base import Database
 from db.models import DefaultReason, RecoveryReason

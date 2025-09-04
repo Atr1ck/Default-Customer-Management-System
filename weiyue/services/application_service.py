@@ -1,7 +1,9 @@
-from db.dao import (
-    DefaultApplicationDAO, RecoveryApplicationDAO, 
-    CustomerDAO, UserDAO, DefaultReasonDAO, RecoveryReasonDAO
-)
+from dao.DefaultApplicationDAO import DefaultApplicationDAO
+from dao.RecoveryApplicationDAO import RecoveryApplicationDAO
+from dao.CustomerDAO import CustomerDAO
+from dao.UserDAO import UserDAO
+from dao.DefaultReasonDAO import DefaultReasonDAO
+from dao.RecoveryReasonDAO import RecoveryReasonDAO
 from db.models import DefaultApplication, RecoveryApplication
 from services.base_service import BaseService
 from datetime import datetime
