@@ -17,7 +17,7 @@ class BaseService:
         
     def generate_id(self, prefix, sequence):
         """生成带前缀的ID"""
-        return f"{prefix}{str(sequence).zfill(4)}"
+        return f"{prefix}{str(sequence).zfill(3)}"
         
     def get_next_sequence(self, table_name, id_column, prefix):
         """获取下一个序号"""

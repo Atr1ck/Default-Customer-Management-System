@@ -368,27 +368,79 @@ def status_options():
     return jsonify({'success': True, 'data': options})
 
 
-# 统计接口（示例聚合数据）
+# 统计接口（基于数据库真实数据）
 @app.route('/api/statistics', methods=['GET'])
 def statistics():
-    data = {
-        'industry': [
-            { 'name': '制造业', 'count': 12, 'percentage': 40.0 },
-            { 'name': '互联网', 'count': 9, 'percentage': 30.0 },
-            { 'name': '金融', 'count': 9, 'percentage': 30.0 },
-        ],
-        'region': [
-            { 'name': '华东', 'count': 10, 'percentage': 33.3 },
-            { 'name': '华南', 'count': 8, 'percentage': 26.7 },
-            { 'name': '华北', 'count': 12, 'percentage': 40.0 },
-        ],
-        'trend': [
-            { 'date': '2025-01-01', 'count': 2 },
-            { 'date': '2025-01-02', 'count': 4 },
-            { 'date': '2025-01-03', 'count': 6 }
+    from db.base import Database
+    db = Database()
+    try:
+        # 1) 行业分布：已违约客户（is_default=1）按 industry_type 聚合
+        industry_sql = """
+            SELECT COALESCE(industry_type, '未知') AS name, COUNT(*) AS cnt
+            FROM t_customer_info
+            WHERE is_default = 1
+            GROUP BY COALESCE(industry_type, '未知')
+            ORDER BY cnt DESC
+        """
+        success, msg = db.execute(industry_sql)
+        industry_rows = db.fetchall() if success else []
+        total_industry = sum(r['cnt'] for r in industry_rows) or 0
+        industry = [
+            {
+                'name': r['name'],
+                'count': int(r['cnt']),
+                'percentage': round((r['cnt'] / total_industry) * 100, 1) if total_industry else 0.0
+            }
+            for r in industry_rows
         ]
-    }
-    return jsonify({'success': True, 'data': data})
+
+        # 2) 区域分布：已违约客户按 region 聚合
+        region_sql = """
+            SELECT COALESCE(region, '未知') AS name, COUNT(*) AS cnt
+            FROM t_customer_info
+            WHERE is_default = 1
+            GROUP BY COALESCE(region, '未知')
+            ORDER BY cnt DESC
+        """
+        success, msg = db.execute(region_sql)
+        region_rows = db.fetchall() if success else []
+        total_region = sum(r['cnt'] for r in region_rows) or 0
+        region = [
+            {
+                'name': r['name'],
+                'count': int(r['cnt']),
+                'percentage': round((r['cnt'] / total_region) * 100, 1) if total_region else 0.0
+            }
+            for r in region_rows
+        ]
+
+        # 3) 趋势：违约申请按日期统计近30天数量
+        trend_sql = """
+            SELECT DATE(apply_time) AS d, COUNT(*) AS cnt
+            FROM t_default_application
+            WHERE apply_time >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            GROUP BY DATE(apply_time)
+            ORDER BY d ASC
+        """
+        success, msg = db.execute(trend_sql)
+        trend_rows = db.fetchall() if success else []
+        trend = [
+            {
+                'date': r['d'].strftime('%Y-%m-%d') if hasattr(r['d'], 'strftime') else str(r['d']),
+                'count': int(r['cnt'])
+            }
+            for r in trend_rows
+        ]
+
+        return jsonify({'success': True, 'data': {
+            'industry': industry,
+            'region': region,
+            'trend': trend
+        }})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'统计查询失败: {str(e)}'}), 500
+    finally:
+        db.close()
 
 
 # 违约申请相关接口

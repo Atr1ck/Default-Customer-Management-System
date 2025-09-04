@@ -42,11 +42,9 @@ const RebirthReview: React.FC = () => {
   const handleSearch = async (values: any) => {
     try {
       setLoading(true);
-      // 模拟搜索API调用
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // 这里应该调用实际的搜索API
-      console.log('搜索参数:', values);
+      const status = values.status as 'pending' | 'approved' | 'rejected' | undefined;
+      const list = await RebirthAPI.listReviews(status);
+      setData(list as RebirthReview[]);
       message.success('搜索完成');
     } catch (error) {
       console.error('搜索失败:', error);
@@ -58,8 +56,10 @@ const RebirthReview: React.FC = () => {
 
   const handleReset = () => {
     searchForm.resetFields();
-    // 重新加载所有数据
-    RebirthAPI.listReviews().then((list: any) => setData(list as RebirthReview[]));
+    setLoading(true);
+    RebirthAPI.listReviews()
+      .then((list: any) => setData(list as RebirthReview[]))
+      .finally(() => setLoading(false));
   };
 
   const handleReview = (record: RebirthReview) => {
@@ -71,27 +71,32 @@ const RebirthReview: React.FC = () => {
   const handleReviewSubmit = async (values: any) => {
     try {
       if (!currentRecord) return;
-      
       setLoading(true);
-      // 模拟审核API调用
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // 更新本地数据
-      setData(prev => prev.map(item => 
-        item.id === currentRecord.id 
-          ? { 
-              ...item, 
-              status: values.status,
-              reviewer: '当前用户',
-              reviewTime: new Date().toLocaleString(),
-              reviewRemark: values.reviewRemark
-            }
-          : item
-      ));
-      
+      // 获取当前用户ID
+      const stored = localStorage.getItem('currentUser');
+      const currentUserId = stored ? (() => { 
+        try { 
+          return JSON.parse(stored)?.user_id as string | undefined; 
+        } catch { 
+          return undefined; 
+        } 
+      })() : 'USER003';
+      // 状态映射
+      const statusMap: Record<'approved' | 'rejected', string> = {
+        approved: '同意',
+        rejected: '拒绝'
+      };
+      await RebirthAPI.audit(currentRecord.id, {
+        auditor_id: (currentUserId as string) || 'USER003',
+        audit_status: statusMap[values.status as 'approved' | 'rejected'],
+        audit_remarks: values.reviewRemark
+      });
       message.success('审核完成');
       setIsReviewModalVisible(false);
       setCurrentRecord(null);
+      // 重新加载列表
+      const list = await RebirthAPI.listReviews();
+      setData(list as RebirthReview[]);
     } catch (error) {
       console.error('审核失败:', error);
       message.error('审核失败');
