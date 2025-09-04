@@ -158,6 +158,25 @@ export const DefaultApplicationAPI = {
     attachment_url?: string;
   }) => apiPost<{success: boolean, message: string}>('/default-applications', data),
 
+  list: async (filters?: {
+    customer_id?: string;
+    status?: 'pending' | 'approved' | 'rejected';
+    start_date?: string;
+    end_date?: string;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.customer_id) params.append('customer_id', filters.customer_id);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.start_date) params.append('start_date', filters.start_date);
+    if (filters?.end_date) params.append('end_date', filters.end_date);
+    
+    const queryString = params.toString();
+    const url = `/default-applications${queryString ? `?${queryString}` : ''}`;
+    return unwrapResponse<Record<string, unknown>[]>(apiGet(url));
+  },
+
+  getById: (id: string) => apiGet<Record<string, unknown>>(`/default-applications/${id}`),
+
   audit: (appId: string, data: {
     auditor_id: string;
     audit_status: string;

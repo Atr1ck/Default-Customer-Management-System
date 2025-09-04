@@ -51,11 +51,51 @@ class ApplicationService(BaseService):
             )
             
             # 保存到数据库
-            return DefaultApplicationDAO.create(application)
+            success = DefaultApplicationDAO.create(application)
+            
+            if success:
+                # 创建成功后，立即将客户状态更新为违约
+                CustomerDAO.update_default_status(customer_id, 1)
+                self.logger.info(f"违约申请 {app_id} 创建成功，客户 {customer_id} 状态已更新为违约")
+            
+            return success
             
         except Exception as e:
             self.logger.error(f"创建违约申请失败: {str(e)}")
             return False
+    
+    def get_default_applications(self, customer_id=None, status=None, start_date=None, end_date=None):
+        """获取违约申请列表，支持筛选"""
+        try:
+            if customer_id:
+                # 获取指定客户的违约申请
+                apps = DefaultApplicationDAO.list_with_filters(
+                    customer_name=None,  # 这里用customer_id筛选
+                    status=status,
+                    start_date=start_date,
+                    end_date=end_date
+                )
+                # 过滤指定客户
+                apps = [app for app in apps if app.customer_id == customer_id]
+            else:
+                apps = DefaultApplicationDAO.list_with_filters(
+                    customer_name=None,
+                    status=status,
+                    start_date=start_date,
+                    end_date=end_date
+                )
+            return apps
+        except Exception as e:
+            self.logger.error(f"获取违约申请列表失败: {str(e)}")
+            return []
+    
+    def get_default_application_by_id(self, app_id):
+        """根据ID获取违约申请详情"""
+        try:
+            return DefaultApplicationDAO.get_by_id(app_id)
+        except Exception as e:
+            self.logger.error(f"获取违约申请详情失败: {str(e)}")
+            return None
     
     def audit_default_application(self, app_id, auditor_id, audit_status, audit_remarks=None):
         """审核违约认定申请"""

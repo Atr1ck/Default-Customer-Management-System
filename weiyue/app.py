@@ -1,12 +1,28 @@
 from flask import Flask, request, jsonify
 from flask.json.provider import DefaultJSONProvider
 import json
+import os
+from werkzeug.utils import secure_filename
+from werkzeug.datastructures import FileStorage
+from werkzeug.utils import send_from_directory
 from services.reason_service import ReasonService
 from services.application_service import ApplicationService
 from services.user_service import UserService
 from db.dao import CustomerDAO, RecoveryApplicationDAO, DefaultApplicationDAO, DefaultReasonDAO, UserDAO
 from config import SERVER_CONFIG
 from flask_cors import CORS
+
+# 文件上传配置
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx'}
+
+# 确保上传目录存在
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 # 自定义JSON提供器，解决中文显示问题
@@ -38,6 +54,62 @@ def after_request(response):
 reason_service = ReasonService()
 application_service = ApplicationService()
 user_service = UserService()
+
+
+# 文件上传接口
+@app.route('/api/upload', methods=['POST'])
+def upload_file():
+    """文件上传接口"""
+    try:
+        # 检查是否有文件
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': '没有选择文件'}), 400
+        
+        file = request.files['file']
+        
+        # 检查文件名是否为空
+        if file.filename == '':
+            return jsonify({'success': False, 'message': '没有选择文件'}), 400
+        
+        # 检查文件类型
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            
+            # 生成唯一文件名，避免重名
+            import uuid
+            unique_filename = f"{uuid.uuid4().hex}_{filename}"
+            
+            # 保存文件
+            file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+            file.save(file_path)
+            
+            # 返回文件URL
+            file_url = f"/uploads/{unique_filename}"
+            
+            return jsonify({
+                'success': True,
+                'message': '文件上传成功',
+                'data': {
+                    'filename': filename,
+                    'url': file_url,
+                    'size': os.path.getsize(file_path)
+                }
+            })
+        else:
+            return jsonify({'success': False, 'message': '不支持的文件类型'}), 400
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'文件上传失败: {str(e)}'}), 500
+
+
+# 文件下载接口
+@app.route('/uploads/<filename>')
+def download_file(filename):
+    """文件下载接口"""
+    try:
+        return send_from_directory(UPLOAD_FOLDER, filename)
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'文件下载失败: {str(e)}'}), 404
 
 
 # 全局异常处理
@@ -126,7 +198,7 @@ def update_default_reason(reason_id):
         return jsonify({
             "success": True,
             "message": message,
-            "data": {"reason_id": reason_id}  // 返回修改的ID，方便前端确认
+            "data": {"reason_id": reason_id}
         })
     else:
         # 根据错误类型返回对应状态码
@@ -336,6 +408,114 @@ def create_default_application():
     if result:
         return jsonify({'success': True, 'message': '违约申请创建成功'})
     return jsonify({'success': False, 'message': '违约申请创建失败'}), 500
+
+
+@app.route('/api/default-applications', methods=['GET'])
+def list_default_applications():
+    """获取违约申请列表，支持筛选"""
+    # 获取筛选参数
+    customer_id = request.args.get('customer_id')
+    status = request.args.get('status')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    # 状态映射
+    status_map = {
+        'pending': '待审核',
+        'approved': '同意',
+        'rejected': '拒绝'
+    }
+    
+    # 转换状态参数
+    if status and status in status_map:
+        status = status_map[status]
+    
+    # 获取申请列表
+    applications = application_service.get_default_applications(
+        customer_id=customer_id,
+        status=status,
+        start_date=start_date,
+        end_date=end_date
+    )
+    
+    # 映射数据格式
+    data = []
+    for app in applications:
+        # 获取客户名称
+        customer = CustomerDAO.get_by_id(app.customer_id)
+        customer_name = customer.customer_name if customer else app.customer_id
+        
+        # 获取违约原因内容
+        reason = DefaultReasonDAO.get_by_id(app.default_reason_id)
+        reason_content = reason.reason_content if reason else app.default_reason_id
+        
+        # 获取申请人名称
+        applicant = UserDAO.get_by_id(app.applicant_id)
+        applicant_name = applicant.real_name if applicant else app.applicant_id
+        
+        # 获取审核人名称
+        reviewer_name = ''
+        if app.auditor_id:
+            auditor = UserDAO.get_by_id(app.auditor_id)
+            reviewer_name = auditor.real_name if auditor else app.auditor_id
+        
+        data.append({
+            'id': app.app_id,
+            'applicationId': app.app_id,
+            'customerName': customer_name,
+            'customerId': app.customer_id,
+            'reasons': [reason_content],
+            'reasonId': app.default_reason_id,
+            'severity': app.severity_level,
+            'remarks': app.remarks or '',
+            'applicant': applicant_name,
+            'applicantId': app.applicant_id,
+            'applyTime': app.apply_time,
+            'status': 'pending' if app.audit_status == '待审核' else ('approved' if app.audit_status == '同意' else 'rejected'),
+            'auditStatus': app.audit_status,
+            'reviewer': reviewer_name,
+            'reviewerId': app.auditor_id,
+            'reviewTime': app.audit_time or '',
+            'reviewRemark': app.audit_remarks or '',
+            'attachmentUrl': app.attachment_url or ''
+        })
+    
+    return jsonify({'success': True, 'data': data})
+
+
+@app.route('/api/default-applications/<app_id>', methods=['GET'])
+def get_default_application(app_id):
+    """获取违约申请详情"""
+    application = application_service.get_default_application_by_id(app_id)
+    if not application:
+        return jsonify({'success': False, 'message': '申请不存在'}), 404
+    
+    # 获取关联信息
+    customer = CustomerDAO.get_by_id(application.customer_id)
+    reason = DefaultReasonDAO.get_by_id(application.default_reason_id)
+    applicant = UserDAO.get_by_id(application.applicant_id)
+    auditor = UserDAO.get_by_id(application.auditor_id) if application.auditor_id else None
+    
+    data = {
+        'id': application.app_id,
+        'customerId': application.customer_id,
+        'customerName': customer.customer_name if customer else application.customer_id,
+        'defaultReasonId': application.default_reason_id,
+        'defaultReason': reason.reason_content if reason else application.default_reason_id,
+        'severityLevel': application.severity_level,
+        'remarks': application.remarks or '',
+        'attachmentUrl': application.attachment_url or '',
+        'applicantId': application.applicant_id,
+        'applicantName': applicant.real_name if applicant else application.applicant_id,
+        'applyTime': application.apply_time,
+        'auditStatus': application.audit_status,
+        'auditorId': application.auditor_id,
+        'auditorName': auditor.real_name if auditor else (application.auditor_id or ''),
+        'auditTime': application.audit_time or '',
+        'auditRemarks': application.audit_remarks or ''
+    }
+    
+    return jsonify({'success': True, 'data': data})
 
 
 @app.route('/api/default-applications/<app_id>/audit', methods=['POST'])
