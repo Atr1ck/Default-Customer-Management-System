@@ -47,7 +47,34 @@ class Database:
         """回滚事务"""
         if self.connection:
             self.connection.rollback()
-            
+    
+    def update(self, table_name, update_data, condition_data):
+        try:
+            if not self.connection:
+                if not self.connect():
+                    return False, "数据库连接失败"
+
+            # 构建 SQL 语句（避免 SQL 注入，使用参数化查询）
+            update_fields = [f"{k} = %s" for k in update_data.keys()]
+            condition_fields = [f"{k} = %s" for k in condition_data.keys()]
+            sql = f"UPDATE {table_name} SET {', '.join(update_fields)} WHERE {', '.join(condition_fields)}"
+
+            # 拼接参数（更新值 + 条件值）
+            params = list(update_data.values()) + list(condition_data.values())
+
+            # 执行 SQL
+            self.cursor.execute(sql, params)
+            self.commit()  # 提交事务
+
+            # 检查影响行数（0 表示未找到符合条件的记录）
+            if self.cursor.rowcount == 0:
+                return False, "未找到要修改的记录"
+            return True, "修改成功"
+
+        except Exception as e:
+            self.rollback()  # 出错回滚事务
+            return False, f"修改失败：{str(e)}"
+    
     def execute(self, sql, params=None):
         """执行SQL语句"""
         try:
