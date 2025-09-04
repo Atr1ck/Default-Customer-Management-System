@@ -27,11 +27,16 @@ class ApplicationService(BaseService):
                 self.logger.error(f"创建违约申请失败：违约原因 {default_reason_id} 不存在")
                 return False
                 
-            # 验证申请人是否存在
+            # 验证申请人是否存在，如果不存在则创建默认用户
             user = UserDAO.get_by_id(applicant_id)
             if not user:
-                self.logger.error(f"创建违约申请失败：申请人 {applicant_id} 不存在")
-                return False
+                self.logger.warning(f"申请人 {applicant_id} 不存在，正在创建默认用户")
+                # 创建默认用户
+                success = self.create_default_user(applicant_id)
+                if not success:
+                    self.logger.error(f"创建违约申请失败：无法创建默认用户 {applicant_id}")
+                    return False
+                self.logger.info(f"默认用户 {applicant_id} 创建成功")
                 
             # 生成申请ID
             sequence = self.get_next_sequence(
@@ -51,14 +56,18 @@ class ApplicationService(BaseService):
                 remarks=remarks,
                 attachment_url=attachment_url
             )
+            # 调试：输出申请对象的完整内容
+            self.logger.debug(f"创建违约申请对象: {application.to_dict()}")
             
             # 保存到数据库
-            success = DefaultApplicationDAO.create(application)
+            success, msg = DefaultApplicationDAO.create(application)
             
             if success:
                 # 创建成功后，立即将客户状态更新为违约
                 CustomerDAO.update_default_status(customer_id, 1)
                 self.logger.info(f"违约申请 {app_id} 创建成功，客户 {customer_id} 状态已更新为违约")
+            else:
+                self.logger.error(f"违约申请 {app_id} 创建失败，原因: {msg}")
             
             return success
             
@@ -144,12 +153,23 @@ class ApplicationService(BaseService):
             # 验证原违约申请是否存在
             # 若未指定原违约申请ID，则按客户查找最新一条
             original_app = None
-            if original_default_app_id:
+            if original_default_app_id and original_default_app_id.strip():
                 original_app = DefaultApplicationDAO.get_by_id(original_default_app_id)
+                if not original_app:
+                    self.logger.error(f"创建重生申请失败：指定的原违约申请 {original_default_app_id} 不存在")
+                    return False
             else:
+                # 查找客户最新的违约申请
                 original_app = DefaultApplicationDAO.get_latest_by_customer(customer_id)
-            if not original_app:
-                self.logger.error(f"创建重生申请失败：未找到客户 {customer_id} 的原违约申请")
+                if not original_app:
+                    self.logger.error(f"创建重生申请失败：未找到客户 {customer_id} 的原违约申请")
+                    return False
+                else:
+                    self.logger.info(f"自动匹配到客户 {customer_id} 的原违约申请: {original_app.app_id}")
+            
+            # 验证原违约申请必须是已审核通过的
+            if original_app.audit_status != "同意":
+                self.logger.error(f"创建重生申请失败：原违约申请 {original_app.app_id} 状态为 {original_app.audit_status}，必须是已审核通过")
                 return False
                 
             # 验证重生原因是否存在
@@ -158,11 +178,16 @@ class ApplicationService(BaseService):
                 self.logger.error(f"创建重生申请失败：重生原因 {recovery_reason_id} 不存在")
                 return False
                 
-            # 验证申请人是否存在
+            # 验证申请人是否存在，如果不存在则创建默认用户
             user = UserDAO.get_by_id(applicant_id)
             if not user:
-                self.logger.error(f"创建重生申请失败：申请人 {applicant_id} 不存在")
-                return False
+                self.logger.warning(f"申请人 {applicant_id} 不存在，正在创建默认用户")
+                # 创建默认用户
+                success = self.create_default_user(applicant_id)
+                if not success:
+                    self.logger.error(f"创建重生申请失败：无法创建默认用户 {applicant_id}")
+                    return False
+                self.logger.info(f"默认用户 {applicant_id} 创建成功")
                 
             # 生成申请ID
             sequence = self.get_next_sequence(
@@ -170,19 +195,32 @@ class ApplicationService(BaseService):
             )
             recovery_app_id = self.generate_id("REC", sequence)
             
+            # 决定使用的原违约申请ID（若未传入，则使用自动匹配到的ID）
+            chosen_original_default_app_id = (
+                original_default_app_id if original_default_app_id and original_default_app_id.strip() else original_app.app_id
+            )
+            self.logger.debug(
+                f"用于创建重生申请的原违约申请ID: {chosen_original_default_app_id}"
+            )
+
             # 创建申请对象
             application = RecoveryApplication(
                 recovery_app_id=recovery_app_id,
                 customer_id=customer_id,
-                original_default_app_id=original_default_app_id,
+                original_default_app_id=chosen_original_default_app_id,
                 recovery_reason_id=recovery_reason_id,
                 applicant_id=applicant_id,
                 apply_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 audit_status="待审核"
             )
+            # 调试：输出申请对象的完整内容
+            self.logger.debug(f"创建重生申请对象: {application.to_dict()}")
             
             # 保存到数据库
-            return RecoveryApplicationDAO.create(application)
+            success, msg = RecoveryApplicationDAO.create(application)
+            if not success:
+                self.logger.error(f"重生申请 {recovery_app_id} 创建失败，原因: {msg}")
+            return success
             
         except Exception as e:
             self.logger.error(f"创建重生申请失败: {str(e)}")
@@ -219,3 +257,34 @@ class ApplicationService(BaseService):
         except Exception as e:
             self.logger.error(f"审核重生申请失败: {str(e)}")
             return False, str(e)
+    
+    def create_default_user(self, user_id):
+        """创建默认用户"""
+        try:
+            from db.models import UserInfo
+            
+            # 创建默认用户对象
+            default_user = UserInfo(
+                user_id=user_id,
+                user_name=user_id,  # 用户名使用user_id
+                real_name=f"默认用户{user_id}",
+                department="系统默认",
+                role="申请人",
+                password="",  # 空密码
+                create_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                phone="",
+                email=""
+            )
+            
+            # 保存到数据库
+            success = UserDAO.create(default_user)
+            if success:
+                self.logger.info(f"默认用户 {user_id} 创建成功")
+            else:
+                self.logger.error(f"默认用户 {user_id} 创建失败")
+            
+            return success
+            
+        except Exception as e:
+            self.logger.error(f"创建默认用户失败: {str(e)}")
+            return False

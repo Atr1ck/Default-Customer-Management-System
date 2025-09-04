@@ -33,9 +33,9 @@ class RecoveryApplicationDAO:
             success, msg = db.execute(sql, params)
             if success:
                 db.commit()
-                return True
+                return True, None
             db.rollback()
-            return False
+            return False, msg
         finally:
             db.close()
     

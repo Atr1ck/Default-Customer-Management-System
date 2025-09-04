@@ -21,18 +21,20 @@ class BaseService:
         
     def get_next_sequence(self, table_name, id_column, prefix):
         """获取下一个序号"""
-        # 实际应用中应该查询数据库获取最大ID，然后加1
-        # 这里简化实现
         from db.base import Database
         db = Database()
         try:
-            sql = f"SELECT MAX({id_column}) as max_id FROM {table_name} WHERE {id_column} LIKE %s"
-            success, msg = db.execute(sql, (f"{prefix}%",))
+            # 以数字方式获取前缀后的最大序号，避免字符串比较导致顺序错误
+            prefix_len = len(prefix)
+            sql = (
+                f"SELECT COALESCE(MAX(CAST(SUBSTRING({id_column}, %s) AS UNSIGNED)), 0) AS max_seq "
+                f"FROM {table_name} WHERE {id_column} LIKE %s"
+            )
+            success, msg = db.execute(sql, (prefix_len + 1, f"{prefix}%"))
             if success:
-                result = db.fetchone()
-                if result and result['max_id']:
-                    num = int(result['max_id'][len(prefix):])
-                    return num + 1
+                row = db.fetchone()
+                max_seq = row['max_seq'] if row and 'max_seq' in row else 0
+                return int(max_seq) + 1
             return 1
         finally:
             db.close()

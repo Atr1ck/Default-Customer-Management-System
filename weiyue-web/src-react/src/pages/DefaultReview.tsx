@@ -40,14 +40,25 @@ const DefaultReview: React.FC = () => {
     })().catch(console.error);
   }, []);
 
-  const handleSearch = async (values: any) => {
+  const handleSearch = async (values: {
+    customerName?: string;
+    status?: string;
+    reviewer?: string;
+    dateRange?: [any, any];
+  }) => {
     try {
       setLoading(true);
       
       // 处理日期范围
-      const filters: any = {};
+      const filters: {
+        customerName?: string;
+        status?: 'pending' | 'approved' | 'rejected';
+        startDate?: string;
+        endDate?: string;
+        reviewer?: string;
+      } = {};
       if (values.customerName) filters.customerName = values.customerName;
-      if (values.status) filters.status = values.status;
+      if (values.status) filters.status = values.status as 'pending' | 'approved' | 'rejected';
       if (values.reviewer) filters.reviewer = values.reviewer;
       
       if (values.dateRange && values.dateRange.length === 2) {
@@ -88,33 +99,57 @@ const DefaultReview: React.FC = () => {
     setIsReviewModalVisible(true);
   };
 
-  const handleReviewSubmit = async (values: any) => {
+  const handleReviewSubmit = async (values: {
+    status: 'approved' | 'rejected';
+    reviewRemark: string;
+  }) => {
     try {
       if (!currentRecord) return;
       
       setLoading(true);
-      // 模拟审核API调用
-      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // 更新本地数据
-      setData(prev => prev.map(item => 
-        item.id === currentRecord.id 
-          ? { 
-              ...item, 
-              status: values.status,
-              reviewer: '当前用户',
-              reviewTime: new Date().toLocaleString(),
-              reviewRemark: values.reviewRemark
-            }
-          : item
-      ));
+      // 获取当前用户ID（从localStorage或使用默认值）
+      const stored = localStorage.getItem('currentUser');
+      const currentUserId = stored ? (() => { 
+        try { 
+          return JSON.parse(stored)?.user_id as string | undefined; 
+        } catch { 
+          return undefined; 
+        } 
+      })() : 'USER003';
       
-      message.success('审核完成');
-      setIsReviewModalVisible(false);
-      setCurrentRecord(null);
+      // 状态映射：前端状态 -> 后端状态
+      const statusMap: Record<'approved' | 'rejected', string> = {
+        'approved': '同意',
+        'rejected': '拒绝'
+      };
+      
+      // 调用真实的审核API
+      const result = await DefaultReviewAPI.audit(currentRecord.id, {
+        auditor_id: currentUserId as string,
+        audit_status: statusMap[values.status],
+        audit_remarks: values.reviewRemark
+      });
+      
+      if (result.success) {
+        message.success('审核完成');
+        setIsReviewModalVisible(false);
+        setCurrentRecord(null);
+        
+        // 重新加载数据以确保显示最新的审核状态
+        try {
+          const updatedData = await DefaultReviewAPI.list();
+          setData(updatedData);
+        } catch (error) {
+          console.error('重新加载数据失败:', error);
+          // 即使重新加载失败，也不影响审核成功的提示
+        }
+      } else {
+        message.error(result.message || '审核失败');
+      }
     } catch (error) {
       console.error('审核失败:', error);
-      message.error('审核失败');
+      message.error('审核失败，请重试');
     } finally {
       setLoading(false);
     }

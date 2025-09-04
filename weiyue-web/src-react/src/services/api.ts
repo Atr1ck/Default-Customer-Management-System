@@ -216,7 +216,15 @@ export const RebirthAPI = {
     original_default_app_id: string;
     recovery_reason_id: string;
     applicant_id: string;
-  })
+  }),
+  
+  audit: async (appId: string, data: {
+    auditor_id: string;
+    audit_status: string;
+    audit_remarks?: string;
+  }): Promise<{success: boolean, message: string}> => {
+    return apiPost<{success: boolean, message: string}>(`/recovery-applications/${appId}/audit`, data);
+  }
 };
 
 export const CustomerAPI = {
@@ -278,6 +286,14 @@ export const DefaultReviewAPI = {
     const queryString = params.toString();
     const url = `/defaultReviews${queryString ? `?${queryString}` : ''}`;
     return unwrapResponse<DefaultReview[]>(apiGet(url));
+  },
+  
+  audit: async (appId: string, data: {
+    auditor_id: string;
+    audit_status: string;
+    audit_remarks?: string;
+  }): Promise<{success: boolean, message: string}> => {
+    return apiPost<{success: boolean, message: string}>(`/default-applications/${appId}/audit`, data);
   }
 };
 

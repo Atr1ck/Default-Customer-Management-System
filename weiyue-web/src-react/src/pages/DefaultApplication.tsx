@@ -14,9 +14,12 @@ import {
   Spin,
   Table,
   Tag,
-  Tooltip
+  Tooltip,
+  Row,
+  Col
 } from 'antd';
-import { UploadOutlined, SaveOutlined, SendOutlined, ExclamationCircleOutlined, EyeOutlined } from '@ant-design/icons';
+import type { UploadFile } from 'antd/es/upload/interface';
+import { UploadOutlined, SaveOutlined, SendOutlined, ExclamationCircleOutlined, EyeOutlined, FileTextOutlined } from '@ant-design/icons';
 import type { DefaultApplication, Customer, DefaultReason } from '../types';
 import { CustomerAPI, ReasonAPI, DefaultApplicationAPI } from '../services/api';
 
@@ -30,9 +33,9 @@ const DefaultApplication: React.FC = () => {
   const [reasons, setReasons] = useState<DefaultReason[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState<string>('');
-  const [applications, setApplications] = useState<any[]>([]);
+  const [applications, setApplications] = useState<Record<string, unknown>[]>([]);
   const [applicationsLoading, setApplicationsLoading] = useState(false);
-  const [fileList, setFileList] = useState<any[]>([]);
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
 
   useEffect(() => {
     loadInitialData();
@@ -58,7 +61,7 @@ const DefaultApplication: React.FC = () => {
       setCustomers(availableCustomers);
       setReasons((reasonsRes as DefaultReason[]).filter(r => r.isEnabled));
       
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('加载数据失败:', error);
       setError('加载客户和违约原因数据失败，请刷新页面重试');
     } finally {
@@ -76,15 +79,14 @@ const DefaultApplication: React.FC = () => {
         } catch { 
           return undefined; 
         } 
-      })() : undefined;
+      })() : 'USER003'; // 设置默认用户ID
       
-      if (currentUserId) {
-        const apps = await DefaultApplicationAPI.list({ customer_id: undefined });
-        // 过滤当前用户的申请
-        const userApps = apps.filter((app: any) => app.applicantId === currentUserId);
-        setApplications(userApps);
-      }
-    } catch (error) {
+      // 由于设置了默认值，currentUserId 总是有值
+      const apps = await DefaultApplicationAPI.list({ customer_id: undefined });
+      // 过滤当前用户的申请
+      const userApps = apps.filter((app: Record<string, unknown>) => app.applicantId === currentUserId);
+      setApplications(userApps);
+    } catch (error: unknown) {
       console.error('加载申请列表失败:', error);
     } finally {
       setApplicationsLoading(false);
@@ -101,7 +103,9 @@ const DefaultApplication: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: Record<string, unknown>) => {
+    console.log('handleSubmit 被调用，表单值:', values); // 添加调试日志
+    
     try {
       setLoading(true);
       
@@ -113,45 +117,62 @@ const DefaultApplication: React.FC = () => {
         } catch { 
           return undefined; 
         } 
-      })() : undefined;
+      })() : 'USER003'; // 设置默认用户ID
       
-      if (!currentUserId) {
-        message.error('请先登录后再提交违约申请');
-        return;
-      }
+      console.log('当前用户ID:', currentUserId); // 添加调试日志
+      
       
       // 获取上传的文件URL列表
-      const attachmentUrls = fileList.map(file => file.response?.data?.url || file.url).filter(Boolean);
+      const attachmentUrls = fileList.map((file: UploadFile) => file.response?.data?.url || file.url).filter(Boolean);
+      console.log('附件URL列表:', attachmentUrls); // 添加调试日志
       
       // 组装后端需要的字段
       const payload = {
-        customer_id: values.customerId,
-        default_reason_id: values.default_reason_id,
-        severity_level: values.severity,
-        applicant_id: currentUserId,
-        remarks: values.remark || '',
+        customer_id: values.customerId as string,
+        default_reason_id: values.default_reason_id as string,
+        severity_level: values.severity as string,
+        applicant_id: currentUserId as string, // 类型断言，因为我们已经设置了默认值
+        remarks: values.remark as string || '',
         attachment_url: attachmentUrls.join(',') // 多个文件用逗号分隔
       };
       
+      // 验证必填字段
+      if (!payload.customer_id) {
+        message.error('请选择客户');
+        return;
+      }
+      if (!payload.default_reason_id) {
+        message.error('请选择违约原因');
+        return;
+      }
+      if (!payload.severity_level) {
+        message.error('请选择严重性');
+        return;
+      }
+      
+      console.log('提交数据:', payload); // 添加调试日志
+      
+      console.log('开始调用API...'); // 添加调试日志
       const result = await DefaultApplicationAPI.create(payload);
+      console.log('API调用结果:', result); // 添加调试日志
       
       if (result.success) {
         message.success('违约申请提交成功，等待审核');
         form.resetFields();
         setFileList([]); // 清空文件列表
         
-        // 重新加载客户列表和申请列表
+        // 重新加载客户列表
         setTimeout(() => {
           loadInitialData();
-          loadApplications();
         }, 1000);
       } else {
         message.error(result.message || '提交失败，请重试');
       }
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('提交失败:', error);
-      message.error(error.message || '提交失败，请重试');
+      const errorMessage = error instanceof Error ? error.message : '提交失败，请重试';
+      message.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -162,7 +183,7 @@ const DefaultApplication: React.FC = () => {
     multiple: true,
     action: 'http://localhost:5000/api/upload',
     fileList: fileList,
-    onChange(info: any) {
+    onChange(info: { fileList: UploadFile[]; file: UploadFile }) {
       setFileList(info.fileList);
       
       if (info.file.status === 'done') {
@@ -179,7 +200,7 @@ const DefaultApplication: React.FC = () => {
       }
       return true;
     },
-    onRemove: (file: any) => {
+    onRemove: (file: UploadFile) => {
       const index = fileList.indexOf(file);
       const newFileList = fileList.slice();
       newFileList.splice(index, 1);
@@ -268,7 +289,7 @@ const DefaultApplication: React.FC = () => {
       title: '操作',
       key: 'action',
       width: 80,
-      render: (_: any, record: any) => (
+      render: () => (
         <Tooltip title="查看详情">
           <Button
             type="text"
@@ -312,152 +333,233 @@ const DefaultApplication: React.FC = () => {
   }
 
   return (
-    <div>
-      <div style={{ marginBottom: 16 }}>
-        <h2>违约认定申请</h2>
-        <p style={{ color: '#666' }}>请填写违约认定申请信息，所有带 * 的字段为必填项</p>
+    <div style={{ padding: '20px' }}>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ margin: 0, color: '#1890ff' }}>
+          <FileTextOutlined style={{ marginRight: 8 }} />
+          违约认定申请
+        </h2>
+        <p style={{ color: '#666', margin: '8px 0 0 0' }}>
+          请填写违约认定申请信息，所有带 <span style={{ color: '#ff4d4f' }}>*</span> 的字段为必填项
+        </p>
       </div>
 
-      <Card title="申请表单" style={{ marginBottom: 24 }}>
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          initialValues={{
-            severity: 'medium'
-          }}
-          validateTrigger={['onBlur', 'onChange']}
-        >
-          <Form.Item
-            name="customerId"
-            label="客户名称"
-            rules={[
-              { required: true, message: '请选择客户' },
-              { validator: (_, value) => {
-                if (value && customers.find(c => c.id === value)?.isDefaulted) {
-                  return Promise.reject(new Error('该客户已经是违约状态'));
-                }
-                return Promise.resolve();
+      <Row gutter={24}>
+        <Col span={16}>
+          <Card 
+            title="申请表单" 
+            style={{ marginBottom: 24 }}
+            headStyle={{ backgroundColor: '#fafafa', borderBottom: '1px solid #f0f0f0' }}
+          >
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={handleSubmit}
+              initialValues={{
+                severity: 'medium'
               }}
-            ]}
-          >
-            <Select
-              showSearch
-              placeholder="请选择客户"
-              optionFilterProp="children"
-              onChange={handleCustomerChange}
-              filterOption={(input, option) =>
-                (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-              }
-              notFoundContent="没有找到匹配的客户"
+              validateTrigger={['onBlur', 'onChange']}
             >
-              {customers.map(customer => (
-                <Option key={customer.id} value={customer.id}>
-                  {customer.name} ({customer.externalLevel})
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item
+                    name="customerId"
+                    label={<span>客户名称 <span style={{ color: '#ff4d4f' }}>*</span></span>}
+                    rules={[
+                      { required: true, message: '请选择客户' },
+                      { validator: (_, value) => {
+                        if (value && customers.find(c => c.id === value)?.isDefaulted) {
+                          return Promise.reject(new Error('该客户已经是违约状态'));
+                        }
+                        return Promise.resolve();
+                      }}
+                    ]}
+                  >
+                    <Select
+                      showSearch
+                      placeholder="请选择客户"
+                      optionFilterProp="children"
+                      onChange={handleCustomerChange}
+                      filterOption={(input, option) =>
+                        (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
+                      }
+                      notFoundContent="没有找到匹配的客户"
+                      style={{ width: '100%' }}
+                    >
+                      {customers.map(customer => (
+                        <Option key={customer.id} value={customer.id}>
+                          {customer.name} ({customer.externalLevel})
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    name="externalLevel"
+                    label="最新外部等级"
+                  >
+                    <Input readOnly placeholder="选择客户后自动显示" />
+                  </Form.Item>
+                </Col>
+              </Row>
 
-          <Form.Item
-            name="externalLevel"
-            label="最新外部等级"
-          >
-            <Input readOnly placeholder="选择客户后自动显示" />
-          </Form.Item>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item
+                    name="default_reason_id"
+                    label={<span>违约原因 <span style={{ color: '#ff4d4f' }}>*</span></span>}
+                    rules={[{ required: true, message: '请选择违约原因' }]}
+                  >
+                    <Select
+                      placeholder="请选择违约原因"
+                      optionFilterProp="children"
+                      notFoundContent="没有可用的违约原因"
+                      style={{ width: '100%' }}
+                    >
+                      {reasons.map(reason => (
+                        <Option key={reason.id} value={reason.id}>
+                          {reason.content}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    name="severity"
+                    label={<span>严重性 <span style={{ color: '#ff4d4f' }}>*</span></span>}
+                    rules={[{ required: true, message: '请选择严重性' }]}
+                  >
+                    <Radio.Group>
+                      {(['high', 'medium', 'low'] as const).map(value => (
+                        <Radio key={value} value={value}>
+                          {value === 'high' ? '高' : value === 'medium' ? '中' : '低'}
+                        </Radio>
+                      ))}
+                    </Radio.Group>
+                  </Form.Item>
+                </Col>
+              </Row>
 
-          <Form.Item
-            name="default_reason_id"
-            label="违约原因"
-            rules={[{ required: true, message: '请选择违约原因' }]}
-          >
-            <Select
-              placeholder="请选择违约原因"
-              optionFilterProp="children"
-              notFoundContent="没有可用的违约原因"
-            >
-              {reasons.map(reason => (
-                <Option key={reason.id} value={reason.id}>
-                  {reason.content}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="severity"
-            label="严重性"
-            rules={[{ required: true, message: '请选择严重性' }]}
-          >
-            <Radio.Group>
-              {(['high', 'medium', 'low'] as const).map(value => (
-                <Radio key={value} value={value}>
-                  {value === 'high' ? '高' : value === 'medium' ? '中' : '低'}
-                </Radio>
-              ))}
-            </Radio.Group>
-          </Form.Item>
-
-          <Form.Item
-            name="remark"
-            label="备注"
-            rules={[
-              { max: 500, message: '备注不能超过500个字符' }
-            ]}
-          >
-            <TextArea
-              rows={4}
-              placeholder="请输入备注信息（可选）"
-              maxLength={500}
-              showCount
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="附件上传"
-          >
-            <Upload {...uploadProps}>
-              <Button icon={<UploadOutlined />}>选择文件</Button>
-            </Upload>
-            <div style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
-              支持格式：PDF、Word、Excel、图片等，单个文件不超过10MB
-            </div>
-          </Form.Item>
-
-          <Divider />
-
-          <Form.Item>
-            <Space>
-              <Button
-                type="primary"
-                htmlType="submit"
-                icon={<SendOutlined />}
-                loading={loading}
-                disabled={customers.length === 0}
+              <Form.Item
+                name="remark"
+                label="备注"
+                rules={[
+                  { max: 500, message: '备注不能超过500个字符' }
+                ]}
               >
-                提交申请
-              </Button>
-              <Button
-                icon={<SaveOutlined />}
-                onClick={() => {
-                  message.info('草稿保存功能开发中');
-                }}
-                disabled={customers.length === 0}
+                <TextArea
+                  rows={4}
+                  placeholder="请输入备注信息（可选）"
+                  maxLength={500}
+                  showCount
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="附件上传"
               >
-                保存草稿
-              </Button>
-              <Button
-                onClick={() => {
-                  form.resetFields();
-                }}
-                disabled={customers.length === 0}
-              >
-                重置
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Card>
+                <Upload {...uploadProps}>
+                  <Button icon={<UploadOutlined />} type="dashed" style={{ width: '100%' }}>
+                    选择文件
+                  </Button>
+                </Upload>
+                <div style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
+                  支持格式：PDF、Word、Excel、图片等，单个文件不超过10MB
+                </div>
+              </Form.Item>
+
+              <Divider />
+
+              <Form.Item>
+                <Space size="middle">
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    icon={<SendOutlined />}
+                    loading={loading}
+                    disabled={customers.length === 0}
+                    size="large"
+                  >
+                    提交申请
+                  </Button>
+                  <Button
+                    icon={<SaveOutlined />}
+                    onClick={() => {
+                      message.info('草稿保存功能开发中');
+                    }}
+                    disabled={customers.length === 0}
+                    size="large"
+                  >
+                    保存草稿
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      try {
+                        console.log('测试API调用...');
+                        const testResult = await DefaultApplicationAPI.list();
+                        console.log('测试API调用结果:', testResult);
+                        message.success('API连接正常');
+                      } catch (error) {
+                        console.error('API测试失败:', error);
+                        message.error('API连接失败，请检查后端服务');
+                      }
+                    }}
+                    size="large"
+                  >
+                    测试API
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      form.resetFields();
+                      setFileList([]);
+                    }}
+                    disabled={customers.length === 0}
+                    size="large"
+                  >
+                    重置
+                  </Button>
+                </Space>
+              </Form.Item>
+            </Form>
+          </Card>
+        </Col>
+
+        <Col span={8}>
+          <Card 
+            title="我的申请记录" 
+            style={{ marginBottom: 24 }}
+            headStyle={{ backgroundColor: '#fafafa', borderBottom: '1px solid #f0f0f0' }}
+          >
+            {applicationsLoading ? (
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <Spin />
+              </div>
+            ) : applications.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+                暂无申请记录
+              </div>
+            ) : (
+              <div>
+                <div style={{ marginBottom: 16 }}>
+                  <span style={{ fontSize: 14, color: '#666' }}>
+                    共 {applications.length} 条申请记录
+                  </span>
+                </div>
+                <Table
+                  columns={applicationColumns}
+                  dataSource={applications}
+                  pagination={false}
+                  size="small"
+                  scroll={{ y: 300 }}
+                  rowKey="applicationId"
+                />
+              </div>
+            )}
+          </Card>
+        </Col>
+      </Row>
     </div>
   );
 };

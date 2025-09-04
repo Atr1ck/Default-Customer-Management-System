@@ -19,7 +19,7 @@ SERVER_CONFIG = {
 
 # 日志配置
 LOG_CONFIG = {
-    'level': 'INFO',
+    'level': 'DEBUG',
     'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     'file': 'app.log'
 }

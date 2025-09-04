@@ -36,3 +36,29 @@ class UserDAO:
             return None
         finally:
             db.close()
+    
+    @staticmethod
+    def create(user_info):
+        """创建新用户"""
+        db = Database()
+        try:
+            sql = """
+                INSERT INTO t_user_info 
+                (user_id, user_name, real_name, department, role, password, create_time, phone, email) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            values = (
+                user_info.user_id,
+                user_info.user_name,
+                user_info.real_name,
+                user_info.department,
+                user_info.role,
+                user_info.password,
+                user_info.create_time,
+                user_info.phone,
+                user_info.email
+            )
+            success, msg = db.execute(sql, values)
+            return success
+        finally:
+            db.close()

@@ -8,11 +8,7 @@ from werkzeug.utils import send_from_directory
 from services.reason_service import ReasonService
 from services.application_service import ApplicationService
 from services.user_service import UserService
-from dao.CustomerDAO import CustomerDAO
-from dao.RecoveryApplicationDAO import RecoveryApplicationDAO
-from dao.DefaultApplicationDAO import DefaultApplicationDAO
-from dao.DefaultReasonDAO import DefaultReasonDAO
-from dao.UserDAO import UserDAO
+from db.dao import CustomerDAO, RecoveryApplicationDAO, DefaultApplicationDAO, DefaultReasonDAO, RecoveryReasonDAO, UserDAO
 from config import SERVER_CONFIG
 from flask_cors import CORS
 
@@ -542,17 +538,25 @@ def audit_default_application(app_id):
 @app.route('/api/recovery-applications', methods=['POST'])
 def create_recovery_application():
     """创建重生申请"""
-    data = request.json
-    result = application_service.create_recovery_application(
-        customer_id=data.get('customer_id'),
-        original_default_app_id=data.get('original_default_app_id'),
-        recovery_reason_id=data.get('recovery_reason_id'),
-        applicant_id=data.get('applicant_id')
-    )
+    try:
+        data = request.json
+        print(f"收到重生申请数据: {data}")  # 添加调试日志
+        
+        result = application_service.create_recovery_application(
+            customer_id=data.get('customer_id'),
+            original_default_app_id=data.get('original_default_app_id'),
+            recovery_reason_id=data.get('recovery_reason_id'),
+            applicant_id=data.get('applicant_id')
+        )
 
-    if result:
-        return jsonify({'success': True, 'message': '重生申请创建成功'})
-    return jsonify({'success': False, 'message': '重生申请创建失败'}), 500
+        if result:
+            return jsonify({'success': True, 'message': '重生申请创建成功'})
+        else:
+            return jsonify({'success': False, 'message': '重生申请创建失败，请检查数据'}), 500
+            
+    except Exception as e:
+        print(f"创建重生申请时发生异常: {str(e)}")  # 添加异常日志
+        return jsonify({'success': False, 'message': f'创建重生申请失败: {str(e)}'}), 500
 
 
 @app.route('/api/recovery-applications/<app_id>/audit', methods=['POST'])
@@ -584,18 +588,54 @@ def list_recovery_applications():
         apps = RecoveryApplicationDAO.list_by_status(status_map[status])
     else:
         apps = RecoveryApplicationDAO.list_all()
+    
     # 映射后端字段到前端所需
-    data = [
-        {
-            'id': a.recovery_app_id,
-            'customerName': a.customer_id,
-            'originalReason': '',
-            'rebirthReason': a.recovery_reason_id,
-            'status': 'pending' if a.audit_status == '待审核' else ('approved' if a.audit_status == '同意' else 'rejected'),
-            'createTime': a.apply_time
-        }
-        for a in apps
-    ]
+    data = []
+    for app in apps:
+        # 获取客户信息
+        customer = CustomerDAO.get_by_id(app.customer_id)
+        customer_name = customer.customer_name if customer else app.customer_id
+        external_level = customer.current_external_rating if customer else ''
+        
+        # 获取原违约原因
+        original_reason = ''
+        if app.original_default_app_id:
+            original_app = DefaultApplicationDAO.get_by_id(app.original_default_app_id)
+            if original_app:
+                reason = DefaultReasonDAO.get_by_id(original_app.default_reason_id)
+                original_reason = reason.reason_content if reason else original_app.default_reason_id
+                severity = original_app.severity_level
+            else:
+                severity = 'medium'
+        else:
+            severity = 'medium'
+        
+        # 获取重生原因
+        rebirth_reason = ''
+        if app.recovery_reason_id:
+            reason = RecoveryReasonDAO.get_by_id(app.recovery_reason_id)
+            rebirth_reason = reason.recovery_content if reason else app.recovery_reason_id
+        
+        # 获取审核人信息
+        reviewer_name = ''
+        if app.auditor_id:
+            auditor = UserDAO.get_by_id(app.auditor_id)
+            reviewer_name = auditor.real_name if auditor else app.auditor_id
+        
+        data.append({
+            'id': app.recovery_app_id,
+            'customerName': customer_name,
+            'originalReason': original_reason,
+            'rebirthReason': rebirth_reason,
+            'severity': severity,
+            'status': 'pending' if app.audit_status == '待审核' else ('approved' if app.audit_status == '同意' else 'rejected'),
+            'applyTime': app.apply_time,
+            'reviewer': reviewer_name,
+            'reviewTime': app.audit_time or '',
+            'reviewRemark': app.audit_remarks or '',
+            'externalLevel': external_level
+        })
+    
     return jsonify({'success': True, 'data': data})
 
 
