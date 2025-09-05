@@ -33,7 +33,7 @@ const MainLayout: React.FC<LayoutProps> = ({ children }) => {
     {
       key: '/',
       icon: <DashboardOutlined />,
-      label: '原因维护',
+      label: '违约原因维护',
     },
     {
       key: '/default-application',

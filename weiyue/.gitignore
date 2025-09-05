@@ -5,8 +5,4 @@ __pycache__/
 .ruff_cache/
 .pdm-python
 .venv
-.pdm-python
-pyproject.toml
-pdm.lock
 app.log
-config.py
