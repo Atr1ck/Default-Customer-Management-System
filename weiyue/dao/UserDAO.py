@@ -36,6 +36,20 @@ class UserDAO:
             return None
         finally:
             db.close()
+
+    @staticmethod
+    def get_by_username(username):
+        """根据用户名获取用户信息"""
+        db = Database()
+        try:
+            sql = "SELECT * FROM t_user_info WHERE user_name = %s"
+            success, msg = db.execute(sql, (username,))
+            if success:
+                row = db.fetchone()
+                return dict_to_model(row, UserInfo)
+            return None
+        finally:
+            db.close()
     
     @staticmethod
     def create(user_info):
@@ -45,7 +59,7 @@ class UserDAO:
             sql = """
                 INSERT INTO t_user_info 
                 (user_id, user_name, real_name, department, role, password, create_time, phone, email) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, NOW(), %s, %s)
             """
             values = (
                 user_info.user_id,
@@ -54,11 +68,14 @@ class UserDAO:
                 user_info.department,
                 user_info.role,
                 user_info.password,
-                user_info.create_time,
                 user_info.phone,
                 user_info.email
             )
             success, msg = db.execute(sql, values)
+            if success:
+                db.commit()
+            else:
+                db.rollback()
             return success
         finally:
             db.close()

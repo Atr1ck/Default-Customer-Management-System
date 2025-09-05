@@ -14,6 +14,7 @@ import {
   BarChartOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { clearCurrentUser, getCurrentUser } from '../utils/auth';
 
 const { Header, Sider, Content } = Layout;
 
@@ -33,7 +34,7 @@ const MainLayout: React.FC<LayoutProps> = ({ children }) => {
     {
       key: '/',
       icon: <DashboardOutlined />,
-      label: '违约原因维护',
+      label: '原因维护',
     },
     {
       key: '/default-application',
@@ -94,7 +95,7 @@ const MainLayout: React.FC<LayoutProps> = ({ children }) => {
 
   const handleUserMenuClick = ({ key }: { key: string }) => {
     if (key === 'logout') {
-      // 处理退出登录
+      clearCurrentUser();
       navigate('/login');
     }
   };
@@ -151,7 +152,7 @@ const MainLayout: React.FC<LayoutProps> = ({ children }) => {
           >
             <Space style={{ cursor: 'pointer' }}>
               <Avatar icon={<UserOutlined />} />
-              <span>管理员</span>
+              <span>{(getCurrentUser()?.real_name as string) || '管理员'}</span>
             </Space>
           </Dropdown>
         </Header>

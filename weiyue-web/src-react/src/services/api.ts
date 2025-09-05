@@ -77,6 +77,9 @@ async function apiGetAbsolute<T>(absolutePath: string): Promise<T> {
 export const UserAPI = {
   login: (username: string, password: string) =>
     apiPost<{success: boolean, data?: Record<string, unknown>, message?: string}>('/login', { username, password })
+  ,
+  register: (payload: { username: string; password: string; real_name?: string; department?: string; role?: string; phone?: string; email?: string; }) =>
+    apiPost<{success: boolean, message?: string}>('/register', payload)
 };
 
 // 违约原因相关API
@@ -159,6 +162,9 @@ export const RecoveryReasonAPI = {
       updateTime: r.update_time || ''
     };
   }
+  ,
+  setEnable: (id: string, enabled: boolean) =>
+    apiPut<{success: boolean, message?: string}>(`/recovery-reasons/${id}`, { is_enabled: enabled ? 1 : 0 })
 };
 
 // 违约申请相关API

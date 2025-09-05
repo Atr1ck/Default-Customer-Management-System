@@ -8,7 +8,12 @@ from werkzeug.utils import send_from_directory
 from services.reason_service import ReasonService
 from services.application_service import ApplicationService
 from services.user_service import UserService
-from db.dao import CustomerDAO, RecoveryApplicationDAO, DefaultApplicationDAO, DefaultReasonDAO, RecoveryReasonDAO, UserDAO
+from dao.CustomerDAO import CustomerDAO
+from dao.RecoveryApplicationDAO import RecoveryApplicationDAO
+from dao.DefaultApplicationDAO import DefaultApplicationDAO
+from dao.DefaultReasonDAO import DefaultReasonDAO
+from dao.RecoveryReasonDAO import RecoveryReasonDAO
+from dao.UserDAO import UserDAO
 from config import SERVER_CONFIG
 from flask_cors import CORS
 
@@ -148,6 +153,34 @@ def login():
             }
         })
     return jsonify({'success': False, 'message': '用户名或密码错误'}), 401
+
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    """用户注册"""
+    data = request.json or {}
+    username = data.get('username')
+    password = data.get('password')
+    real_name = data.get('real_name') or ''
+    department = data.get('department') or ''
+    role = data.get('role') or 'user'
+    phone = data.get('phone') or ''
+    email = data.get('email') or ''
+
+    if not username or not password:
+        return jsonify({'success': False, 'message': '用户名和密码不能为空'}), 400
+
+    ok, msg = user_service.register(
+        username=username,
+        password=password,
+        real_name=real_name,
+        department=department,
+        role=role,
+        phone=phone,
+        email=email
+    )
+    status = 200 if ok else 400
+    return jsonify({'success': ok, 'message': msg}), status
 
 
 # 违约原因相关接口

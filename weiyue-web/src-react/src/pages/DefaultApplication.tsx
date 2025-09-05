@@ -22,6 +22,7 @@ import type { UploadFile } from 'antd/es/upload/interface';
 import { UploadOutlined, SaveOutlined, SendOutlined, ExclamationCircleOutlined, EyeOutlined, FileTextOutlined } from '@ant-design/icons';
 import type { DefaultApplication, Customer, DefaultReason } from '../types';
 import { CustomerAPI, ReasonAPI, DefaultApplicationAPI } from '../services/api';
+import { getCurrentUserId } from '../utils/auth';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -72,14 +73,7 @@ const DefaultApplication: React.FC = () => {
   const loadApplications = async () => {
     try {
       setApplicationsLoading(true);
-      const stored = localStorage.getItem('currentUser');
-      const currentUserId = stored ? (() => { 
-        try { 
-          return JSON.parse(stored)?.user_id as string | undefined; 
-        } catch { 
-          return undefined; 
-        } 
-      })() : 'USER003'; // 设置默认用户ID
+      const currentUserId = getCurrentUserId();
       
       // 由于设置了默认值，currentUserId 总是有值
       const apps = await DefaultApplicationAPI.list({ customer_id: undefined });
@@ -110,14 +104,7 @@ const DefaultApplication: React.FC = () => {
       setLoading(true);
       
       // 从本地获取登录用户ID
-      const stored = localStorage.getItem('currentUser');
-      const currentUserId = stored ? (() => { 
-        try { 
-          return JSON.parse(stored)?.user_id as string | undefined; 
-        } catch { 
-          return undefined; 
-        } 
-      })() : 'USER003'; // 设置默认用户ID
+      const currentUserId = getCurrentUserId();
       
       console.log('当前用户ID:', currentUserId); // 添加调试日志
       
@@ -131,7 +118,7 @@ const DefaultApplication: React.FC = () => {
         customer_id: values.customerId as string,
         default_reason_id: values.default_reason_id as string,
         severity_level: values.severity as string,
-        applicant_id: currentUserId as string, // 类型断言，因为我们已经设置了默认值
+        applicant_id: (currentUserId as string),
         remarks: values.remark as string || '',
         attachment_url: attachmentUrls.join(',') // 多个文件用逗号分隔
       };
