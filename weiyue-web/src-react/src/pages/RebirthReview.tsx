@@ -15,6 +15,8 @@ import {
   Col
 } from 'antd';
 import { SearchOutlined, ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { DatePicker } from 'antd';
+import type { Dayjs } from 'dayjs';
 import type { RebirthReview } from '../types';
 import { RebirthAPI, OptionsAPI } from '../services/api';
 
@@ -43,7 +45,11 @@ const RebirthReview: React.FC = () => {
     try {
       setLoading(true);
       const status = values.status as 'pending' | 'approved' | 'rejected' | undefined;
-      const list = await RebirthAPI.listReviews(status);
+      const severity = values.severity as 'high' | 'medium' | 'low' | undefined;
+      const range: [Dayjs, Dayjs] | undefined = values.dateRange;
+      const startDate = range ? range[0].format('YYYY-MM-DD') : undefined;
+      const endDate = range ? range[1].format('YYYY-MM-DD') : undefined;
+      const list = await RebirthAPI.listReviewsWithFilters({ status, severity, startDate, endDate });
       setData(list as RebirthReview[]);
       message.success('搜索完成');
     } catch (error) {
@@ -239,6 +245,20 @@ const RebirthReview: React.FC = () => {
                     </Option>
                   ))}
                 </Select>
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="severity" label="严重程度">
+                <Select placeholder="请选择严重程度" allowClear>
+                  <Option value="high">高</Option>
+                  <Option value="medium">中</Option>
+                  <Option value="low">低</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="dateRange" label="申请时间范围">
+                <DatePicker.RangePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>

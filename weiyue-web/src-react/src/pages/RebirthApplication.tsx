@@ -176,14 +176,14 @@ const RebirthApplication: React.FC = () => {
   ];
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ marginBottom: 16 }}>
         <h2>违约重生申请</h2>
         <p style={{ color: '#666' }}>为已违约客户申请重生，恢复其正常经营状态</p>
       </div>
 
-      <Row gutter={16}>
-        <Col span={12}>
+      <Row gutter={16} style={{ flex: 1, minHeight: 0 }}>
+        <Col span={12} style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <Card
             title="违约客户列表"
             extra={
@@ -191,35 +191,42 @@ const RebirthApplication: React.FC = () => {
                 共 {defaultedCustomers.length} 个违约客户
               </span>
             }
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
           >
-            <Table
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <Table
               columns={columns}
               dataSource={defaultedCustomers}
               rowKey="id"
               size="small"
               pagination={false}
-              scroll={{ y: 300 }}
+              scroll={{ y: 'calc(100vh - 260px)' as unknown as number }}
             />
+            </div>
           </Card>
         </Col>
-        
-        <Col span={12}>
+        <Col span={12} style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <Card
-            title="重生申请记录"
+            title="我的申请记录"
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
             extra={
-              <span style={{ fontSize: 12, color: '#666' }}>
-                共 {applications.length} 条申请记录
-              </span>
+              <Space size="small">
+                <Button size="small" onClick={() => { /* 预留刷新 */ }}>
+                  刷新
+                </Button>
+              </Space>
             }
           >
-            <Table
-              columns={applicationColumns}
-              dataSource={applications}
-              rowKey="id"
-              size="small"
-              pagination={false}
-              scroll={{ y: 300 }}
-            />
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <Table
+                columns={applicationColumns}
+                dataSource={applications}
+                rowKey="id"
+                size="small"
+                pagination={{ pageSize: 10, showSizeChanger: true }}
+                scroll={{ y: 'calc(100vh - 260px)' as unknown as number }}
+              />
+            </div>
           </Card>
         </Col>
       </Row>

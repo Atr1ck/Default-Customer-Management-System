@@ -47,7 +47,8 @@ class ReasonService(BaseService):
         return self.db.update(
             table_name="t_recovery_reason",
             update_data=update_data,
-            condition_data={"reason_id": reason_id}
+            # 主键字段为 recovery_id，不是 reason_id
+            condition_data={"recovery_id": reason_id}
         )
 
     

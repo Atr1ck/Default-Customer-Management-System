@@ -14,7 +14,7 @@ class DefaultReasonDAO:
         """获取所有启用的违约原因"""
         db = Database()
         try:
-            sql = "SELECT * FROM t_default_reason WHERE is_enabled = 1 ORDER BY create_time DESC"
+            sql = "SELECT * FROM t_default_reason ORDER BY create_time DESC"
             success, msg = db.execute(sql)
             if success:
                 results = db.fetchall()

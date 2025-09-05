@@ -8,7 +8,7 @@ const DefaultReasonMaintenance: React.FC = () => {
   
 
   useEffect(() => {
-    ReasonAPI.list().then((list: any) => setData(list as DefaultReason[])).catch(console.error);
+    ReasonAPI.list().then((list) => setData(list as DefaultReason[])).catch(console.error);
   }, []);
 
   // 只读模式：不提供新增、编辑、删除
@@ -48,10 +48,15 @@ const DefaultReasonMaintenance: React.FC = () => {
       render: (isEnabled: boolean, record: DefaultReason) => (
         <Switch
           checked={isEnabled}
-          onChange={(checked) => {
-            setData(prev => prev.map(item => 
-              item.id === record.id ? { ...item, isEnabled: checked } : item
-            ));
+          onChange={async (checked) => {
+            const prev = data;
+            setData(prev => prev.map(item => item.id === record.id ? { ...item, isEnabled: checked } : item));
+            try {
+              await ReasonAPI.setEnable(record.id, checked);
+            } catch {
+              // 回滚
+              setData(prev);
+            }
           }}
         />
       ),

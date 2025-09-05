@@ -160,6 +160,20 @@ def get_default_reasons():
         'data': [reason.to_dict() for reason in reasons]
     })
 
+@app.route('/api/default-reasons/<reason_id>/enable', methods=['PUT'])
+def set_default_reason_enable(reason_id):
+    """启用/禁用违约原因"""
+    data = request.json or {}
+    is_enabled = data.get('is_enabled')
+    if is_enabled not in (0, 1, True, False):
+        return jsonify({'success': False, 'message': '参数错误：is_enabled 只能是 0/1 或 true/false'}), 400
+    # 归一化为 0/1
+    is_enabled_val = 1 if bool(is_enabled) else 0
+    success, message = reason_service.update_default_reason(reason_id, {'is_enabled': is_enabled_val})
+    if success:
+        return jsonify({'success': True, 'message': '更新成功'})
+    return jsonify({'success': False, 'message': message or '更新失败'}), 500
+
 
 @app.route('/api/default-reasons/<reason_id>', methods=['GET'])
 def get_default_reason(reason_id):
@@ -636,6 +650,8 @@ def list_recovery_applications():
         'rejected': '拒绝'
     }
     status = request.args.get('status')
+    start_date = request.args.get('startDate')  # YYYY-MM-DD
+    end_date = request.args.get('endDate')      # YYYY-MM-DD
     if status and status in status_map:
         apps = RecoveryApplicationDAO.list_by_status(status_map[status])
     else:
@@ -644,6 +660,11 @@ def list_recovery_applications():
     # 映射后端字段到前端所需
     data = []
     for app in apps:
+        # 申请时间范围筛选（基于重生申请 apply_time）
+        if start_date and (not app.apply_time or str(app.apply_time) < f"{start_date} 00:00:00"):
+            continue
+        if end_date and (not app.apply_time or str(app.apply_time) > f"{end_date} 23:59:59"):
+            continue
         # 获取客户信息
         customer = CustomerDAO.get_by_id(app.customer_id)
         customer_name = customer.customer_name if customer else app.customer_id

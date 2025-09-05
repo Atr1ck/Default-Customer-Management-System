@@ -44,6 +44,18 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   return res.json();
 }
 
+export async function apiPut<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    throw new Error(`PUT ${path} ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function apiDelete(path: string): Promise<void> {
   const res = await fetch(`${API_BASE}${path}`, { method: 'DELETE' });
   if (!res.ok) {
@@ -104,7 +116,9 @@ export const DefaultReasonAPI = {
       createTime: r.create_time,
       updateTime: r.update_time || ''
     };
-  }
+  },
+  setEnable: (id: string, enabled: boolean) =>
+    apiPut<{success: boolean, message?: string}>(`/default-reasons/${id}/enable`, { is_enabled: enabled ? 1 : 0 })
 };
 
 // 重生原因相关API
@@ -210,6 +224,15 @@ export const ReasonAPI = DefaultReasonAPI;
 export const RebirthAPI = {
   listApplications: () => unwrapResponse<Record<string, unknown>[]>(apiGet(`/recovery-applications`)),
   listReviews: (status?: 'pending' | 'approved' | 'rejected') => unwrapResponse<Record<string, unknown>[]>(apiGet(`/recovery-applications${status ? `?status=${status}` : ''}`)),
+  listReviewsWithFilters: (filters?: { status?: 'pending' | 'approved' | 'rejected'; severity?: 'high' | 'medium' | 'low'; startDate?: string; endDate?: string; }) => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.severity) params.append('severity', filters.severity);
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    const qs = params.toString();
+    return unwrapResponse<Record<string, unknown>[]>(apiGet(`/recovery-applications${qs ? `?${qs}` : ''}`));
+  },
   reasons: () => RecoveryReasonAPI.list(),
   createApplication: (data: Record<string, unknown>) => RecoveryApplicationAPI.create(data as {
     customer_id: string;
