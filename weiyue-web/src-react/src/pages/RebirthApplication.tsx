@@ -183,7 +183,6 @@ const RebirthApplication: React.FC = () => {
       </div>
 
       <Row gutter={16} style={{ flex: 1, minHeight: 0 }}>
-        <Col span={12} style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <Card
             title="违约客户列表"
             extra={
@@ -204,31 +203,6 @@ const RebirthApplication: React.FC = () => {
             />
             </div>
           </Card>
-        </Col>
-        <Col span={12} style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <Card
-            title="我的申请记录"
-            style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
-            extra={
-              <Space size="small">
-                <Button size="small" onClick={() => { /* 预留刷新 */ }}>
-                  刷新
-                </Button>
-              </Space>
-            }
-          >
-            <div style={{ flex: 1, minHeight: 0 }}>
-              <Table
-                columns={applicationColumns}
-                dataSource={applications}
-                rowKey="id"
-                size="small"
-                pagination={{ pageSize: 10, showSizeChanger: true }}
-                scroll={{ y: 'calc(100vh - 260px)' as unknown as number }}
-              />
-            </div>
-          </Card>
-        </Col>
       </Row>
 
       <Modal

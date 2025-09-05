@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import MainLayout from './components/Layout';
-import DefaultReasonMaintenance from './pages/DefaultReasonMaintenance';
+import ReasonMaintenance from './pages/ReasonMaintenance';
 import DefaultApplication from './pages/DefaultApplication';
 import DefaultReview from './pages/DefaultReview';
 import DefaultQuery from './pages/DefaultQuery';
@@ -18,7 +18,7 @@ function App() {
       <Router>
         <MainLayout>
           <Routes>
-            <Route path="/" element={<DefaultReasonMaintenance />} />
+            <Route path="/" element={<ReasonMaintenance />} />
             <Route path="/default-application" element={<DefaultApplication />} />
             <Route path="/default-review" element={<DefaultReview />} />
             <Route path="/default-query" element={<DefaultQuery />} />

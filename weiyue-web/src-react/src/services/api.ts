@@ -158,7 +158,9 @@ export const RecoveryReasonAPI = {
       createTime: r.create_time,
       updateTime: r.update_time || ''
     };
-  }
+  },
+  setEnable: (id: string, enabled: boolean) =>
+    apiPut<{success: boolean, message?: string}>(`/recovery-reasons/${id}/enable`, { is_enabled: enabled ? 1 : 0 })
 };
 
 // 违约申请相关API

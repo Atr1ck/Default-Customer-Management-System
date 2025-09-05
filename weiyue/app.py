@@ -276,6 +276,20 @@ def get_recovery_reason(reason_id):
         })
     return jsonify({'success': False, 'message': '重生原因不存在'}), 404
 
+@app.route('/api/recovery-reasons/<reason_id>/enable', methods=['PUT'])
+def set_recovery_reason_enable(reason_id):
+    """启用/禁用重生原因"""
+    data = request.json or {}
+    is_enabled = data.get('is_enabled')
+    if is_enabled not in (0, 1, True, False):
+        return jsonify({'success': False, 'message': '参数错误：is_enabled 只能是 0/1 或 true/false'}), 400
+    # 归一化为 0/1
+    is_enabled_val = 1 if bool(is_enabled) else 0
+    success, message = reason_service.update_recovery_reason(reason_id, {'is_enabled': is_enabled_val})
+    if success:
+        return jsonify({'success': True, 'message': '更新成功'})
+    return jsonify({'success': False, 'message': message or '更新失败'}), 500
+
 
 # 客户列表接口
 @app.route('/api/customers', methods=['GET'])

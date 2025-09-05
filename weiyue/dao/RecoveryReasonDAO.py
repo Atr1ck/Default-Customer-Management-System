@@ -14,7 +14,7 @@ class RecoveryReasonDAO:
         """获取所有启用的重生原因"""
         db = Database()
         try:
-            sql = "SELECT * FROM t_recovery_reason WHERE is_enabled = 1 ORDER BY create_time DESC"
+            sql = "SELECT * FROM t_recovery_reason ORDER BY create_time DESC"
             success, msg = db.execute(sql)
             if success:
                 results = db.fetchall()
